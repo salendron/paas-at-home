@@ -1,16 +1,30 @@
 package main
 
 import (
-	"time"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+
+	"github.com/gorilla/mux"
 )
 
-func main() {
-	storage := &Storage{}
+var storage StorageInterface = &Storage{}
+var api *API = &API{}
+
+func init() {
 	storage.Initialize()
+	api.Initialize(storage)
+}
 
-	storage.Set("k1", "v1", 10)
-	storage.Set("k2", "v2", 2)
-	storage.Set("k3", "v3", 5)
+func main() {
+	r := mux.NewRouter()
+	r.HandleFunc("/{realm}/{key}", api.Get).Methods("GET")
+	r.HandleFunc("/{realm}/{key}", api.Set).Methods("POST")
+	r.HandleFunc("/{realm}/{key}", api.Delete).Methods("DELETE")
+	r.HandleFunc("/{realm}/keys", api.Keys).Methods("GET")
+	r.HandleFunc("/realms", api.Realms).Methods("GET")
 
-	time.Sleep(time.Duration(20) * time.Second)
+	// Bind to a port and pass our router in
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", os.Getenv("PORT")), r))
 }
