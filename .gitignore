@@ -5,6 +5,9 @@
 *.so
 *.dylib
 
+# MacOS 
+.DS_STORE
+
 # Test binary, built with `go test -c`
 *.test
 
