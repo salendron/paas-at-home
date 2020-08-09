@@ -48,13 +48,9 @@ func (a *API) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Write Response
-	response := ValueMessageType{
-		Value: value, //TODO expires in
-	}
-
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(value.ToValueMessageType())
 }
 
 func (a *API) Set(w http.ResponseWriter, r *http.Request) {
@@ -72,17 +68,17 @@ func (a *API) Set(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msg := ValueMessageType{}
-	err := json.NewDecoder(r.Body).Decode(&msg)
+	value, err := ValueFromValueMessageType(r.Body)
 	if err != nil {
-		RaiseError(w, "Key is missing", http.StatusBadRequest, ErrorCodeInvalidRequestBody)
+		RaiseError(w, "Invalid request body", http.StatusBadRequest, ErrorCodeInvalidRequestBody)
+		return
 	}
 
-	a.Storage.Set(realm, key, msg.Value, msg.ExpiresIn)
+	a.Storage.Set(realm, key, value)
 
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(msg)
+	json.NewEncoder(w).Encode(value.ToValueMessageType())
 }
 
 func (a *API) Delete(w http.ResponseWriter, r *http.Request) {
