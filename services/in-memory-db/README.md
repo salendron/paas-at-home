@@ -17,7 +17,28 @@ This service is developed using Visual Studio Code and requires the following ex
 ## API
 Description and examples (cUrl) for all API calls of this service.
 
-### SET
+### Models
+#### Value
+```json
+{
+        "value":"a value as string",
+        "expires-in":180
+}
+```
+
+#### Error
+```json
+{
+        "error":{
+                "message":"No value found for key myrealm/myke",
+                "status":404,
+                "code":3
+                }
+}
+```
+
+### Methods
+#### SET
 Sets a value in given realm using given key.
 
 This example sets "a value as string" in realm "myrealm" using key "mykey".
@@ -28,7 +49,7 @@ curl --header "Content-Type: application/json" \
   http://localhost:7000/myrealm/mykey
 ```
 
-### GET
+#### GET
 Gets a value in given realm by given key.
 
 This example get valiue of key "meykey in realm "myrealm".
