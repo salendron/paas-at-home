@@ -62,3 +62,27 @@ sudo usermod -aG docker pi
 # Test Docker
 docker run hello-world
 ```
+
+# Add external storage
+First connect your USB drive to the Raspberry Pi.
+Let's find it using this command. Also copy the UUId of the device.
+`` `
+sudo blkid -o list -w /dev/null
+```
+Create a mountpoint and then allow user pi to edit the contents of this new directory. (chown, chgrp, ...)
+```
+sudo mkdir /media/external
+```
+Maybe you want to format your drive now, but make sure that it is really also sda innyour case!
+```
+sudo mkfs.ext4 /dev/sda
+```
+To mount the drive on boot add the following line to /etc/fstab.
+```
+UUID=YOUR-DEVICE-UUID /media/external/ ext4 defaults 0
+```
+Now let's test the mountpoint.
+```
+sudo mount -a
+```
+Your USB storage should now be mounted and also automatically get mounted after a reboot.
