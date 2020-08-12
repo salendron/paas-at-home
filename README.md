@@ -66,7 +66,7 @@ docker run hello-world
 # Add external storage
 First connect your USB drive to the Raspberry Pi.
 Let's find it using this command. Also copy the UUId of the device.
-`` `
+```
 sudo blkid -o list -w /dev/null
 ```
 Create a mountpoint and then allow user pi to edit the contents of this new directory. (chown, chgrp, ...)
