@@ -82,13 +82,56 @@ func (a *API) Set(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) Delete(w http.ResponseWriter, r *http.Request) {
-	// TODO
+	// Get Request Vars
+	vars := mux.Vars(r)
+	realm, ok := vars["realm"]
+	if !ok {
+		RaiseError(w, "Realm is missing", http.StatusBadRequest, ErrorCodeRealmMissing)
+		return
+	}
+
+	key, ok := vars["key"]
+	if !ok {
+		RaiseError(w, "Key is missing", http.StatusBadRequest, ErrorCodeKeyMissing)
+		return
+	}
+
+	ok = a.Storage.Delete(realm, key)
+	if !ok {
+		RaiseError(w, fmt.Sprintf("No value found for key %v/%v", realm, key), http.StatusNotFound, ErrorCodeEntityNotFound)
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *API) Keys(w http.ResponseWriter, r *http.Request) {
-	// TODO
+	// Get Request Vars
+	vars := mux.Vars(r)
+	realm, ok := vars["realm"]
+	if !ok {
+		RaiseError(w, "Realm is missing", http.StatusBadRequest, ErrorCodeRealmMissing)
+		return
+	}
+
+	keys := a.Storage.Keys(realm)
+	keysMessage := KeyListMessageType{
+		Keys: keys,
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(keysMessage)
 }
 
 func (a *API) Realms(w http.ResponseWriter, r *http.Request) {
-	// TODO
+	realms := a.Storage.Realms()
+	keysMessage := RealmListMessageType{
+		Realms: realms,
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(keysMessage)
 }
