@@ -87,3 +87,35 @@ Now let's test the mountpoint.
 sudo mount -a
 ```
 Your USB storage should now be mounted and also automatically get mounted after a reboot.
+
+### Install Git to get latest service versions
+```
+sudo apt-get install git
+```
+
+## Pull service to server
+First create directory to pull the services to.
+```
+cd /media/external/
+mkdir src
+git clone https://github.com/salendron/home-service-host.git
+```
+
+## Build and run a service
+To make our service available in Docker we need to build them. Wel so need to comment out some lines from the docker file, since they are only needed by VSCode and not supported by docker on the RaspberryPi. So open the Docker file and comment out or remove these lines.
+```
+# Install Libs needed for vscode
+# RUN go get golang.org/x/tools/gopls
+# RUN go get github.com/go-delve/delve/cmd/dlv
+```
+Navigate to the service directory (the one with the Dockerfile inside) and run **docker build --tag SERVICENAME:VERSION DIRECTORY**.
+You have to repeat this process for every service update.
+### Build Example:
+```
+docker build --tag in-memory-db:1.0 .
+```
+Now we can run our service on docker. We set name, the name of this container instance, as well as the prot we want it to run on and also a restart policy. We use "unless-stopped", which restarts the container, even on failures or docker deamon restarts, unless we manually stop it. See more restart options [here](https://docs.docker.com/config/containers/start-containers-automatically/).
+```
+docker run -d -p 7000:7000 --name in-memory-db -e PORT='7000' -v /var/run/docker.sock:/var/run/docker.sock --restart unless-stopped in-memory-db:1.0
+```
+You can now use **docker ps** to verify that the service is running.
