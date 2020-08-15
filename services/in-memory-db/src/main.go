@@ -72,11 +72,11 @@ func init() {
 //and starts the server on PORT specified in env vars.
 func main() {
 	r := mux.NewRouter()
+	r.HandleFunc("/{realm}/keys", api.Keys).Methods("GET")
+	r.HandleFunc("/realms", api.Realms).Methods("GET")
 	r.HandleFunc("/{realm}/{key}", api.Get).Methods("GET")
 	r.HandleFunc("/{realm}/{key}", api.Set).Methods("POST")
 	r.HandleFunc("/{realm}/{key}", api.Delete).Methods("DELETE")
-	r.HandleFunc("/{realm}/keys", api.Keys).Methods("GET")
-	r.HandleFunc("/realms", api.Realms).Methods("GET")
 
 	// Bind to a port and pass our router in
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", os.Getenv("PORT")), r))
