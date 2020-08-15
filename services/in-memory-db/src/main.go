@@ -62,11 +62,14 @@ import (
 var storage StorageInterface = &Storage{}
 var api *API = &API{}
 
+//init initializes storage and api
 func init() {
 	storage.Initialize()
 	api.Initialize(storage)
 }
 
+//main is the main entrypoint of the service. It routes all API methods
+//and starts the server on PORT specified in env vars.
 func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/{realm}/{key}", api.Get).Methods("GET")

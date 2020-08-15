@@ -28,19 +28,23 @@ SOFTWARE.
 */
 package main
 
+//ValueMessageType defines the API message for Values
 type ValueMessageType struct {
 	Value     string `json:"value"`
 	ExpiresIn int    `json:"expires-in"`
 }
 
+//KeyListMessageType defines the API message for lists of keys
 type KeyListMessageType struct {
 	Keys []string `json:"keys"`
 }
 
+//RealmListMessageType defines the API message for lists of realms
 type RealmListMessageType struct {
 	Realms []string `json:"realms"`
 }
 
+//ErrorMessageType defines the API message for errors
 type ErrorMessageType struct {
 	Error interface{} `json:"error"`
 }

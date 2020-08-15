@@ -36,11 +36,16 @@ import (
 	"time"
 )
 
+// Values implements a single key/value instance, which is saved to the key/value
+// storage.
 type Value struct {
 	Value     string
 	ExpiresAt time.Time
 }
 
+//ToValueMessageType transforms a Value instance to a ValueMessageType that can
+//be converted to json and served via the api. It also takes care of setting the
+//right remaining expire time in seconds.
 func (v *Value) ToValueMessageType() ValueMessageType {
 	return ValueMessageType{
 		Value:     v.Value,
@@ -48,6 +53,8 @@ func (v *Value) ToValueMessageType() ValueMessageType {
 	}
 }
 
+//ValueFromValueMessageType creates a Value from the JSON message in the
+//request body and converts the given seconds into a time instance.
 func ValueFromValueMessageType(body io.ReadCloser) (*Value, error) {
 	msg := ValueMessageType{}
 

@@ -37,6 +37,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
+//APIInterface defines the interface of the RESTful API
 type APIInterface interface {
 	Get(w http.ResponseWriter, r *http.Request)
 	Set(w http.ResponseWriter, r *http.Request)
@@ -46,14 +47,17 @@ type APIInterface interface {
 	Initialize(storage StorageInterface)
 }
 
+//API implements APIInterface
 type API struct {
 	Storage StorageInterface
 }
 
+//Initialize initializes the API by setting the active storage
 func (a *API) Initialize(storage StorageInterface) {
 	a.Storage = storage
 }
 
+//API handler to get values
 func (a *API) Get(w http.ResponseWriter, r *http.Request) {
 	// Get Request Vars
 	vars := mux.Vars(r)
@@ -82,6 +86,7 @@ func (a *API) Get(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(value.ToValueMessageType())
 }
 
+//API handler to set values
 func (a *API) Set(w http.ResponseWriter, r *http.Request) {
 	// Get Request Vars
 	vars := mux.Vars(r)
@@ -110,6 +115,7 @@ func (a *API) Set(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(value.ToValueMessageType())
 }
 
+//API handler to delete values
 func (a *API) Delete(w http.ResponseWriter, r *http.Request) {
 	// Get Request Vars
 	vars := mux.Vars(r)
@@ -135,6 +141,7 @@ func (a *API) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+//API handler to get keys of a realm
 func (a *API) Keys(w http.ResponseWriter, r *http.Request) {
 	// Get Request Vars
 	vars := mux.Vars(r)
@@ -154,6 +161,7 @@ func (a *API) Keys(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(keysMessage)
 }
 
+//API handler to get realms
 func (a *API) Realms(w http.ResponseWriter, r *http.Request) {
 	realms := a.Storage.Realms()
 	keysMessage := RealmListMessageType{
