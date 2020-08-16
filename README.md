@@ -1,5 +1,5 @@
 # home-service-host
-This project's aim is to build an environment to run services at home on a RaspberryPi using Docker. This whole repository can be used as a collection of sample/tutorial projects on RapsberryPi, Golang, Docker, Microservices, Python, Tensorflow and so on.
+This project's aim is to build a service environment using a RaspberryPi and Docker. The documentation includes detailed information about how to set it up and how to run services on it. It should be something like a Paas@Home in the end. I do this, because I think it could grow into a nice collection of tutorial projects on Docker, Golang, Machine Learning, Microservices and so on. Please do not use any of these services in production, just use these as tutorials and howtos on various subjects.
 This whole thing is still work in progress, so make sure to come back from time to time to see what's new.
 
 ## The Setup
