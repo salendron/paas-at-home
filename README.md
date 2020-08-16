@@ -1,5 +1,6 @@
 # home-service-host
-Is it possible to use a RaspberryPi as service host for private home use? Shared Todolists, Automations, Microservices, Docker, all the good stuff...
+This project's aim is to build an environment to run services at home on a RaspberryPi using Docker. This whole repository can be used as a collection of sample/tutorial projects on RapsberryPi, Golang, Docker, Microservices, Python, Tensorflow and so on.
+This whole thing is still work in progress, so make sure to come back from time to time to see what's new.
 
 ## The Setup
 I'm using a Raspberry Pi 3 Model B and Raspberry Pi OS (32-bit) Lite (Minimal image based on Debian Buster). Simply follow the instructions on [https://www.raspberrypi.org/](https://www.raspberrypi.org/) to setup your pi. 
