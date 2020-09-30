@@ -40,6 +40,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -53,6 +54,7 @@ func logRequest(w http.ResponseWriter, r *http.Request) {
 	logMsg := make([]string, 0)
 
 	// Request
+	method := r.Method
 	logMsg = append(logMsg, fmt.Sprintf("%v: %v", r.Method, r.URL))
 	logMsg = append(logMsg, fmt.Sprintf("Remote Address: %v", r.RemoteAddr))
 	logMsg = append(logMsg, fmt.Sprintf("ContentLength: %v", r.ContentLength))
@@ -74,6 +76,23 @@ func logRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Println(strings.Join(logMsg, "\n"))
+
+	// Respond
+	w.Header().Add("Content-Type", "application/json")
+
+	switch {
+	case method == "GET":
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(strings.Join(logMsg, "\n"))
+	case method == "POST":
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(strings.Join(logMsg, "\n"))
+	case method == "PUT":
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(strings.Join(logMsg, "\n"))
+	case method == "DELETE":
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 //main is the main entrypoint of the service.
