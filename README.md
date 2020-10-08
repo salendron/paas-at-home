@@ -120,3 +120,11 @@ Now we can run our service on docker. We set name, the name of this container in
 docker run -d -p 7000:7000 --name in-memory-db -e PORT='7000' -v /var/run/docker.sock:/var/run/docker.sock --restart unless-stopped in-memory-db:1.0
 ```
 You can now use **docker ps** to verify that the service is running.
+
+## Running Visual Code in Docker
+Since I want to code on my iPad, I've also setup a VS Coder server on docker to be able to run VS Code in the browser. To do so I#ve created a directory 'workspace' and then used this as data directory for a linuxserver/code-server container.
+```
+mkdir workspace
+docker run -d -p 8443:8443 -v "$PWD/workspace:/config" --name coder --restart unless-stopped -e PUID=1000 -e PGID=1000 linuxserver/code-server
+```
+PGID and PUID are the the ids of the local pi user to be able to write to workspace. Now you can navigate to your Pi's address on port 8443 in your browser and start coding.
