@@ -39,7 +39,7 @@ type ErrorCode int
 
 const (
 	ErrorCodeInternal               ErrorCode = 0
-	ErrorCodeTopicExists                      = 1
+	ErrorCodeLoginFailed                      = 1
 	ErrorCodeIDIsMissing                      = 2
 	ErrorCodeIDMismatch                       = 3
 	ErrorCodeEntityNotFound                   = 4

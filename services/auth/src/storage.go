@@ -45,6 +45,12 @@ var applicationsDirectory = "applications"
 
 //StorageInterface defines the interface for the data storage.
 type StorageInterface interface {
+	GetUserByCredentials(username string, passowrd string) (*User, bool, error)
+	GetUser(ID string) (*User, error)
+	ListUSers([]*User, error)
+	SaveUser(user *User) error
+	DeleteUser(user *User) error
+	GetUserByCredentials(username string, password string) (*User, bool, error)
 }
 
 //Implements StorageInterface
@@ -182,4 +188,17 @@ func (s *Storage) DeleteUser(user *User) error {
 	userPath := filepath.Join(usersPath, fmt.Sprintf("%v.json", user.ID))
 
 	return os.Remove(userPath)
+}
+
+func (s *Storage) GetUserByCredentials(username string, password string) (*User, bool, error) {
+	user, err := s.GetUser(username)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if user.Password != password {
+		return nil, false, nil
+	}
+
+	return user, true, nil
 }

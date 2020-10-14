@@ -28,31 +28,18 @@ SOFTWARE.
 */
 package main
 
-/*
-//MessageReceivedConfirmationType defines the API answer for successful queued messages
-type MessageReceivedConfirmationType struct {
-	ID              string    `json:"string"`
-	TopicIdentifier string    `json:"topic"`
-	SubscriberCount int       `json:"subcriber-count"`
-	CreatedAt       time.Time `json:"created-at"`
+
+//UserLoginType defines the API input for a user login
+type UserLoginType struct {
+	Username    string    `json:"username"`
+	Password 	string    `json:"password"`
 }
 
-//MessageType defines the API mesaage for incoming messages (pub)
-type MessageType struct {
-	TopicIdentifier string                 `json:"topic"`
-	Message         map[string]interface{} `json:"message"`
+// UserTokenType defines the API response for a successful user login
+type UserTokenType struct {
+	AccessToken string `json:"access-token"`
+	RefreshToken string `json:"refresh-token"`
 }
-
-// SubscriptionUrlType defines the API message for subscribing and unsuscribing a URL from a topic
-type SubscriptionUrlType struct {
-	URL string `json:"url"`
-}
-
-//TopicListMessageType defines the API message for lists of topics
-type TopicListMessageType struct {
-	Topics []*Topic `json:"topics"`
-}
-*/
 
 //ErrorMessageType defines the API message for errors
 type ErrorMessageType struct {

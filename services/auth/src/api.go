@@ -29,24 +29,16 @@ SOFTWARE.
 */
 package main
 
-/*
+
 //APIInterface defines the interface of the RESTful API
 type APIInterface interface {
 	Initialize(storage StorageInterface, publisher PublisherInterface)
-	CreateTopic(w http.ResponseWriter, r *http.Request)
-	UpdateTopic(w http.ResponseWriter, r *http.Request)
-	GetTopic(w http.ResponseWriter, r *http.Request)
-	DeleteTopic(w http.ResponseWriter, r *http.Request)
-	ListTopics(w http.ResponseWriter, r *http.Request)
-	Subscribe(w http.ResponseWriter, r *http.Request)
-	Unsubscribe(w http.ResponseWriter, r *http.Request)
-	Publish(w http.ResponseWriter, r *http.Request)
+	UserLogin(w http.ResponseWriter, r *http.Request)
 }
 
 //API implements APIInterface
 type API struct {
 	Storage   StorageInterface
-	Publisher PublisherInterface
 }
 
 //Initialize initializes the API by setting the active storage and publisher
@@ -66,45 +58,25 @@ func parseRequestPayload(rc io.ReadCloser, dst interface{}) error {
 }
 
 //API handler to create topics
-func (a *API) CreateTopic(w http.ResponseWriter, r *http.Request) {
-	topic := &Topic{}
-	err := parseRequestPayload(r.Body, topic)
+func (a *API) UserLogin(w http.ResponseWriter, r *http.Request) {
+	loginMsg := &UserLoginType{}
+	err := parseRequestPayload(r.Body, loginMsg)
 	if err != nil {
 		RaiseError(w, "Invalid request body. Invalid Json format", http.StatusBadRequest, ErrorCodeInvalidRequestBody)
-		return
-	}
 
-	err = topic.Validate()
-	if err != nil {
-		RaiseError(w, fmt.Sprintf("Invalid request body. %v", err.Error()), http.StatusBadRequest, ErrorCodeInvalidRequestBody)
-		return
-	}
-
-	existingTopic, err := a.Storage.GetTopic(topic.Identifier)
+	user, ok, err := a.Storage.GetUserByCredentials(loginMsg.Username, loginMsg.Password)
 	if err != nil {
 		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
 		return
 	}
-
-	if existingTopic != nil {
-		RaiseError(w, "Topic already exists", http.StatusBadRequest, ErrorCodeTopicExists)
-		return
+	
+	if !ok {
+		RaiseError(w, "Login failed", http.StatusUnauthorized, ErrorCodeLoginFailed)
 	}
 
-	// initialize subscriptions
-	topic.Subscriptions = make([]*Subscription, 0)
+	
 
-	err = a.Storage.SaveTopic(topic)
-	if err != nil {
-		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
-		return
-	}
-
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(topic)
-}
-
+/*
 //API handler to update topics
 func (a *API) UpdateTopic(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
