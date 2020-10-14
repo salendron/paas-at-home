@@ -5,13 +5,12 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-
-	guuid "github.com/google/uuid"
 )
 
 
-type TokenBuilderInterface {
-	
+type TokenBuilderInterface interface {
+	CreateUserToken(user *User) (*UserTokenData, error)
+	CreateServiceToken(service *Service) (*ServiceTokenData, error)
 }
 
 type UserTokenData struct {
@@ -70,7 +69,7 @@ func (t *TokenBuilder) CreateServiceToken(service *Service) (*ServiceTokenData, 
 
 	var err error
 
-	td := ServiceTokenData{}
+	td := &ServiceTokenData{}
 
 	// Create Token
 	sClaims := jwt.MapClaims{}

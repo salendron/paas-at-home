@@ -37,16 +37,16 @@ import (
 // ErrorCode defines all possible errors codes of this service
 type ErrorCode int
 
+// ErrorCodes
 const (
-	ErrorCodeInternal               ErrorCode = 0
-	ErrorCodeLoginFailed                      = 1
-	ErrorCodeIDIsMissing                      = 2
-	ErrorCodeIDMismatch                       = 3
-	ErrorCodeEntityNotFound                   = 4
-	ErrorCodeInvalidRequestBody               = 5
-	ErrorCodeInvalidSubscriptionURL           = 6
-	ErrorCodeSenderNotAllowed                 = 7
-	ErrorCodeInvalidTopic                     = 8
+	ErrorCodeInternal                ErrorCode = 0
+	ErrorCodeLoginFailed                       = 1
+	ErrorCodeRefreshFailed                     = 2
+	ErrorCodeIDIsMissing                       = 3
+	ErrorCodeInvalidRequestBody                = 4
+	ErrorCodeUnexpectedSigningMethod           = 5
+	ErrorCodeInvalidToken                      = 6
+	ErrorCodeTokenExpired                      = 7
 )
 
 // ErrorMessage holds all information of a certain error

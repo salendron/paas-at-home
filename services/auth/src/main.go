@@ -45,20 +45,25 @@ SOFTWARE.
 
 package main
 
-// var storage StorageInterface = &Storage{}
-// var publisher PublisherInterface = &Publisher{}
-// var api APIInterface = &API{}
+import (
+	"fmt"
+	"os"
+)
+
+var storage StorageInterface = &Storage{}
+var tokenbuilder TokenBuilderInterface = &TokenBuilder{}
+var api APIInterface = &API{}
 
 //init initializes storage and api
 func init() {
-	// storage.Initialize(os.Getenv("DATA_DIRECTORY"))
-	// publisher.Initialize(storage)
-	// api.Initialize(storage, publisher)
+	storage.Initialize(os.Getenv("DATA_DIRECTORY"))
+	api.Initialize(storage, tokenbuilder)
 }
 
 //main is the main entrypoint of the service. It routes all API methods
 //and starts the server on PORT specified in env vars.
 func main() {
+	fmt.Println("test")
 	/*
 		r := mux.NewRouter()
 

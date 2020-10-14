@@ -29,22 +29,34 @@ SOFTWARE.
 */
 package main
 
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"time"
 
-//APIInterface defines the interface of the RESTful API
+	"github.com/dgrijalva/jwt-go"
+)
+
+// APIInterface defines the interface of the RESTful API
 type APIInterface interface {
-	Initialize(storage StorageInterface, publisher PublisherInterface)
+	Initialize(storage StorageInterface, tokenbuilder TokenBuilderInterface)
 	UserLogin(w http.ResponseWriter, r *http.Request)
+	RefreshToken(w http.ResponseWriter, r *http.Request)
 }
 
-//API implements APIInterface
+// API implements APIInterface
 type API struct {
-	Storage   StorageInterface
+	Storage      StorageInterface
+	Tokenbuilder TokenBuilderInterface
 }
 
-//Initialize initializes the API by setting the active storage and publisher
-func (a *API) Initialize(storage StorageInterface, publisher PublisherInterface) {
+// Initialize initializes the API by setting the active storage and publisher
+func (a *API) Initialize(storage StorageInterface, tokenbuilder TokenBuilderInterface) {
 	a.Storage = storage
-	a.Publisher = publisher
+	a.Tokenbuilder = tokenbuilder
 }
 
 // parseRequestPayload parses the given json data of the request's io.ReadCloser
@@ -57,286 +69,147 @@ func parseRequestPayload(rc io.ReadCloser, dst interface{}) error {
 	return nil
 }
 
-//API handler to create topics
+// UserLogin handles user login api requests
 func (a *API) UserLogin(w http.ResponseWriter, r *http.Request) {
 	loginMsg := &UserLoginType{}
 	err := parseRequestPayload(r.Body, loginMsg)
 	if err != nil {
 		RaiseError(w, "Invalid request body. Invalid Json format", http.StatusBadRequest, ErrorCodeInvalidRequestBody)
+		return
+	}
 
 	user, ok, err := a.Storage.GetUserByCredentials(loginMsg.Username, loginMsg.Password)
 	if err != nil {
 		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
 		return
 	}
-	
+
 	if !ok {
 		RaiseError(w, "Login failed", http.StatusUnauthorized, ErrorCodeLoginFailed)
-	}
-
-	
-
-/*
-//API handler to update topics
-func (a *API) UpdateTopic(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	ID, ok := vars["id"]
-	if !ok {
-		RaiseError(w, "ID is missing", http.StatusBadRequest, ErrorCodeIDIsMissing)
 		return
 	}
 
-	topic := &Topic{}
-	err := parseRequestPayload(r.Body, topic)
-	if err != nil {
-		RaiseError(w, "Invalid request body. Invalid Json format", http.StatusBadRequest, ErrorCodeInvalidRequestBody)
-		return
-	}
-
-	err = topic.Validate()
-	if err != nil {
-		RaiseError(w, fmt.Sprintf("Invalid request body. %v", err.Error()), http.StatusBadRequest, ErrorCodeInvalidRequestBody)
-		return
-	}
-
-	ID = strings.ToUpper(strings.TrimSpace(ID))
-
-	if ID != topic.Identifier {
-		RaiseError(w, "ID in request URL does not match topic identifier", http.StatusBadRequest, ErrorCodeIDMismatch)
-		return
-	}
-
-	existingTopic, err := a.Storage.GetTopic(topic.Identifier)
+	td, err := a.Tokenbuilder.CreateUserToken(user)
 	if err != nil {
 		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
 		return
 	}
 
-	if existingTopic == nil {
-		RaiseError(w, "Topic does not exists", http.StatusNotFound, ErrorCodeEntityNotFound)
-		return
-	}
-
-	// subscriptions are read only in this call - use subscribe or unsubscribe to edit this
-	topic.Subscriptions = existingTopic.Subscriptions
-
-	err = a.Storage.SaveTopic(topic)
-	if err != nil {
-		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
-		return
+	resp := UserTokenType{
+		AccessToken:  td.AccessToken,
+		RefreshToken: td.RefreshToken,
 	}
 
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(topic)
+	json.NewEncoder(w).Encode(resp)
 }
 
-func (a *API) DeleteTopic(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	ID, ok := vars["id"]
-	if !ok {
-		RaiseError(w, "ID is missing", http.StatusBadRequest, ErrorCodeIDIsMissing)
+// RefreshToken is the API Handler for token refresh requests
+func (a *API) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	refreshMsg := &RefreshTokenRequestType{}
+	err := parseRequestPayload(r.Body, refreshMsg)
+	if err != nil {
+		RaiseError(w, "Invalid request body. Invalid Json format", http.StatusBadRequest, ErrorCodeInternal)
 		return
 	}
 
-	ID = strings.ToUpper(strings.TrimSpace(ID))
+	token, err := jwt.Parse(refreshMsg.RefreshToken, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method %v", token.Header["alg"])
+		}
+		return []byte(os.Getenv("AUTH_REFRESH_SECRET")), nil
+	})
+	if err != nil {
+		RaiseError(w, err.Error(), http.StatusBadRequest, ErrorCodeUnexpectedSigningMethod)
+		return
+	}
 
-	topic, err := a.Storage.GetTopic(ID)
+	if _, ok := token.Claims.(jwt.MapClaims); !ok && !token.Valid {
+		RaiseError(w, "Invalid Token", http.StatusBadRequest, ErrorCodeInvalidToken)
+		return
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		RaiseError(w, "Invalid token claims", http.StatusBadRequest, ErrorCodeInvalidToken)
+		return
+	}
+
+	exp, ok := claims["exp"].(time.Time)
+	if !ok {
+		RaiseError(w, "Missing exp", http.StatusBadRequest, ErrorCodeInvalidToken)
+		return
+	}
+
+	if exp.After(time.Now().UTC()) {
+		RaiseError(w, "Token expired", http.StatusUnauthorized, ErrorCodeTokenExpired)
+		return
+	}
+
+	userID, ok := claims["user_id"].(string)
+	if !ok {
+		RaiseError(w, "Missing user_id", http.StatusBadRequest, ErrorCodeInvalidToken)
+		return
+	}
+
+	user, err := a.Storage.GetUser(userID)
 	if err != nil {
 		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
 		return
 	}
 
-	if topic == nil {
-		RaiseError(w, "Topic does not exists", http.StatusNotFound, ErrorCodeEntityNotFound)
+	if user == nil {
+		RaiseError(w, fmt.Sprintf("Unknown user %v", userID), http.StatusBadRequest, ErrorCodeInvalidToken)
 		return
 	}
 
-	err = a.Storage.DeleteTopic(topic)
+	td, err := a.Tokenbuilder.CreateUserToken(user)
 	if err != nil {
 		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
 		return
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (a *API) GetTopic(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	ID, ok := vars["id"]
-	if !ok {
-		RaiseError(w, "ID is missing", http.StatusBadRequest, ErrorCodeIDIsMissing)
-		return
-	}
-
-	ID = strings.ToUpper(strings.TrimSpace(ID))
-
-	topic, err := storage.GetTopic(ID)
-	if err != nil {
-		RaiseError(w, err.Error(), http.StatusBadRequest, ErrorCodeInternal)
-		return
-	}
-
-	if topic == nil {
-		RaiseError(w, fmt.Sprintf("No topic found with ID: %v", ID), http.StatusNotFound, ErrorCodeEntityNotFound)
-		return
+	resp := &UserTokenType{
+		AccessToken:  td.AccessToken,
+		RefreshToken: td.RefreshToken,
 	}
 
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(topic)
+	json.NewEncoder(w).Encode(resp)
 }
 
-func (a *API) ListTopics(w http.ResponseWriter, r *http.Request) {
-	topics, err := storage.ListTopics()
+// ServiceLogin handles service login api requests
+func (a *API) ServiceLogin(w http.ResponseWriter, r *http.Request) {
+	loginMsg := ServiceLoginType{}
+	err := parseRequestPayload(r.Body, loginMsg)
 	if err != nil {
-		RaiseError(w, err.Error(), http.StatusBadRequest, ErrorCodeInternal)
+		RaiseError(w, "Invalid request body. Invalid json format", http.StatusBadRequest, ErrorCodeInvalidRequestBody)
+		return
+	}
+	service, ok, err := a.Storage.GetServiceByCredentials(loginMsg.ID, loginMsg.Key)
+	if err != nil {
+		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
 		return
 	}
 
-	msg := TopicListMessageType{
-		Topics: topics,
+	if !ok {
+		RaiseError(w, "Login failed", http.StatusUnauthorized, ErrorCodeLoginFailed)
+		return
+	}
+
+	td, err := a.Tokenbuilder.CreateServiceToken(service)
+	if err != nil {
+		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
+		return
+	}
+
+	resp := &ServiceTokenType{
+		AccessToken: td.AccessToken,
 	}
 
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(msg)
+	json.NewEncoder(w).Encode(resp)
 }
-
-//API handler to subscribe to a topic
-func (a *API) Subscribe(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	topicID, ok := vars["topic"]
-	if !ok {
-		RaiseError(w, "Topic ID is missing", http.StatusBadRequest, ErrorCodeIDIsMissing)
-		return
-	}
-
-	subscriptionUrl := &SubscriptionUrlType{}
-	err := parseRequestPayload(r.Body, subscriptionUrl)
-	if err != nil {
-		RaiseError(w, "Invalid request body. Invalid Json format", http.StatusBadRequest, ErrorCodeInvalidRequestBody)
-		return
-	}
-
-	subscriptionUrl.URL = strings.TrimSpace(subscriptionUrl.URL)
-
-	if len(subscriptionUrl.URL) == 0 { // FIXME We should validate that this is a valid URL
-		RaiseError(w, "Subscription Url can't be empty", http.StatusBadRequest, ErrorCodeInvalidSubscriptionURL)
-		return
-	}
-
-	existingTopic, err := a.Storage.GetTopic(topicID)
-	if err != nil {
-		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
-		return
-	}
-
-	if existingTopic == nil {
-		RaiseError(w, "Topic does not exists", http.StatusNotFound, ErrorCodeEntityNotFound)
-		return
-	}
-
-	// try to subscribe the URL
-	senderAllowed, err := existingTopic.Subscribe(subscriptionUrl.URL, a.Storage)
-	if !senderAllowed {
-		RaiseError(w, "Sender is not allowed for this topic", http.StatusNotFound, ErrorCodeSenderNotAllowed)
-		return
-	}
-
-	if err != nil {
-		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
-		return
-	}
-
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNoContent)
-}
-
-//API handler to unsubscribe from a task
-func (a *API) Unsubscribe(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	topicID, ok := vars["topic"]
-	if !ok {
-		RaiseError(w, "Topic ID is missing", http.StatusBadRequest, ErrorCodeIDIsMissing)
-		return
-	}
-
-	subscriptionUrl := &SubscriptionUrlType{}
-	err := parseRequestPayload(r.Body, subscriptionUrl)
-	if err != nil {
-		RaiseError(w, "Invalid request body. Invalid Json format", http.StatusBadRequest, ErrorCodeInvalidRequestBody)
-		return
-	}
-
-	subscriptionUrl.URL = strings.TrimSpace(subscriptionUrl.URL)
-
-	if len(subscriptionUrl.URL) == 0 { // FIXME We should validate that this is a valid URL
-		RaiseError(w, "Subscription Url can't be empty", http.StatusBadRequest, ErrorCodeInvalidSubscriptionURL)
-		return
-	}
-
-	existingTopic, err := a.Storage.GetTopic(topicID)
-	if err != nil {
-		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
-		return
-	}
-
-	if existingTopic == nil {
-		RaiseError(w, "Topic does not exists", http.StatusNotFound, ErrorCodeEntityNotFound)
-		return
-	}
-
-	// Unsubscribe URL from topic
-	err = existingTopic.Unsubscribe(subscriptionUrl.URL, a.Storage)
-	if err != nil {
-		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
-		return
-	}
-
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNoContent)
-}
-
-//API handler to publish messages
-func (a *API) Publish(w http.ResponseWriter, r *http.Request) {
-	message := &MessageType{}
-	err := parseRequestPayload(r.Body, message)
-	if err != nil {
-		RaiseError(w, "Invalid request body. Invalid Json format", http.StatusBadRequest, ErrorCodeInvalidRequestBody)
-		return
-	}
-
-	message.TopicIdentifier = strings.ToUpper(strings.TrimSpace(message.TopicIdentifier))
-
-	if len(message.TopicIdentifier) == 0 {
-		RaiseError(w, "Topic can't be empty", http.StatusBadRequest, ErrorCodeInvalidTopic)
-		return
-	}
-
-	topic, err := a.Storage.GetTopic(message.TopicIdentifier)
-	if err != nil {
-		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
-		return
-	}
-
-	if topic == nil {
-		RaiseError(w, "Topic does not exists", http.StatusNotFound, ErrorCodeEntityNotFound)
-		return
-	}
-
-	messageID, subscriberCount, err := a.Publisher.Publish(message, topic, "sender")
-
-	confirmation := MessageReceivedConfirmationType{
-		ID:              messageID,
-		TopicIdentifier: message.TopicIdentifier,
-		SubscriberCount: subscriberCount,
-		CreatedAt:       time.Now().UTC(),
-	}
-
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(confirmation)
-}
-*/

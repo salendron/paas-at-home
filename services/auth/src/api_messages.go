@@ -41,6 +41,22 @@ type UserTokenType struct {
 	RefreshToken string `json:"refresh-token"`
 }
 
+// RefreshTokenRequestType defines the API input for token refresh requests
+type RefreshTokenRequestType struct {
+	RefreshToken string `json:"refresh-token"`
+}
+
+// ServiceLoginType defines the API input for a service login
+type ServiceLoginType struct {
+	ID string `json:"id"`
+	Key string `json:"key"`
+}
+
+// ServiceTokenType defines the API response for a successful service login
+type ServiceTokenType struct {
+	AccessToken string `json:"access-token"`
+}
+
 //ErrorMessageType defines the API message for errors
 type ErrorMessageType struct {
 	Error interface{} `json:"error"`

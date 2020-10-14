@@ -35,28 +35,23 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
-	"sync"
 )
 
 var usersDirectory = "users"
-var applicationsDirectory = "applications"
+var servicesDirectory = "services"
 
 //StorageInterface defines the interface for the data storage.
 type StorageInterface interface {
+	Initialize(dataRootDirectory string)
 	GetUserByCredentials(username string, passowrd string) (*User, bool, error)
 	GetUser(ID string) (*User, error)
-	ListUSers([]*User, error)
-	SaveUser(user *User) error
-	DeleteUser(user *User) error
-	GetUserByCredentials(username string, password string) (*User, bool, error)
+	GetServiceByCredentials(ID string, key string) (*Service, bool, error)
+	GetService(ID string) (*Service, error)
 }
 
-//Implements StorageInterface
+// Storage implements StorageInterface
 type Storage struct {
 	DataRootDirectory string
-	MutexLock         sync.Mutex
 }
 
 // Initialize sets the data root directory
@@ -84,14 +79,6 @@ func (s *Storage) getDirectoryPath(name string) (string, error) {
 	}
 
 	return path, nil
-}
-
-// writeFile writes a file
-func (s *Storage) writeFile(filePath string, file []byte) error {
-	s.MutexLock.Lock()
-	defer s.MutexLock.Unlock()
-
-	return ioutil.WriteFile(filePath, file, 0755)
 }
 
 // GetUser loads a user. If it does not exists it returns nil as user
@@ -126,71 +113,17 @@ func (s *Storage) GetUser(ID string) (*User, error) {
 	return user, nil
 }
 
-// ListUsers lists all users
-func (s *Storage) ListUsers() ([]*User, error) {
-	users := make([]*User, 0)
-
-	usersPath, err := s.getDirectoryPath(usersDirectory)
-	if err != nil {
-		return nil, err
-	}
-
-	identifiers := make([]string, 0)
-	filepath.Walk(usersPath, func(path string, f os.FileInfo, _ error) error {
-		if !f.IsDir() {
-			r, err := regexp.MatchString(".json", f.Name())
-			if err == nil && r {
-				identifiers = append(identifiers, strings.TrimRight(f.Name(), ".json"))
-			}
-		}
-		return nil
-	})
-
-	for i := 0; i < len(identifiers); i++ {
-		user, err := s.GetUser(identifiers[i])
-		if err != nil {
-			return users, nil
-		}
-
-		users = append(users, user)
-	}
-
-	return users, nil
-}
-
-func (s *Storage) SaveUser(user *User) error {
-	usersPath, err := s.getDirectoryPath(usersDirectory)
-	if err != nil {
-		return err
-	}
-
-	userPath := filepath.Join(usersPath, fmt.Sprintf("%v.json", user.ID))
-
-	file, err := json.Marshal(user)
-	if err != nil {
-		return err
-	}
-
-	err = s.writeFile(userPath, file)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Storage) DeleteUser(user *User) error {
-	usersPath, err := s.getDirectoryPath(usersDirectory)
-	if err != nil {
-		return err
-	}
-
-	userPath := filepath.Join(usersPath, fmt.Sprintf("%v.json", user.ID))
-
-	return os.Remove(userPath)
-}
-
+// GetUserByCredentials loads a User using given credentials
 func (s *Storage) GetUserByCredentials(username string, password string) (*User, bool, error) {
+	if username == "su" && password == os.Getenv("SU_PWD") {
+		user := &User{
+			ID: "su",
+			Permissions: []*Permission{
+				&Permission{Key: "ROOT"},
+			},
+		}
+		return user, true, nil
+	}
 	user, err := s.GetUser(username)
 	if err != nil {
 		return nil, false, err
@@ -202,3 +135,53 @@ func (s *Storage) GetUserByCredentials(username string, password string) (*User,
 
 	return user, true, nil
 }
+
+// GetService loads a service. If it does not exist it returns nil as service
+func (s *Storage) GetService(ID string) (*Service, error){
+	storagePath, err := s.getDirectoryPath(servicesDirectory)
+	if err != nil {
+		return nil, err
+	}
+
+	servicePath := filepath.Join(storagePath, fmt.Sprintf("%v.json", ID))
+	service := &Service{}
+	if s.fileExists(servicePath) {
+		jsonFile, err := os.Open(servicePath)
+		if err != nil {
+			return nil, err
+		}
+		defer jsonFile.Close()
+
+		byteValue, err := ioutil.ReadAll(jsonFile)
+		if err != nil {
+			return nil, err
+		}
+
+		err = json.Unmarshal(byteValue, service)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, nil
+	}
+
+	return service, nil
+}
+
+// GetServiceByCredentials loads a Service using given credentials.
+func (s *Storage) GetServiceByCredentials(ID string, key string) (*Service, bool, error) {
+	service, err := s.GetService(ID)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if service.AuthKey != key {
+		return nil, false, nil
+	}
+
+	return service, true, nil
+}
+
+
+
+
