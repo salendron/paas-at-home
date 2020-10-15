@@ -13,7 +13,10 @@
             "env": {
                 "PORT":"7004",
                 "DATA_DIRECTORY":"tmp",
-                "AUTH_SECRET":"myGreatSecret"
+                "AUTH_ACCESS_SECRET":"myGreatAccessSecret",
+                "AUTH_REFRESH_SECRET":"myGreatRefreshSecret",
+                "AUTH_SERVICE_SECRET":"myGreatServiceSecret",
+                "SU_PWD":"myGreatSuPassword"
             },
             "args": []
         }

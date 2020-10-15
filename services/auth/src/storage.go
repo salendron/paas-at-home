@@ -30,6 +30,7 @@ SOFTWARE.
 package main
 
 import (
+	"log"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -115,6 +116,7 @@ func (s *Storage) GetUser(ID string) (*User, error) {
 
 // GetUserByCredentials loads a User using given credentials
 func (s *Storage) GetUserByCredentials(username string, password string) (*User, bool, error) {
+	log.Println(fmt.Sprintf("%v %v %v", username, password, os.Getenv("SU_PWD")))
 	if username == "su" && password == os.Getenv("SU_PWD") {
 		user := &User{
 			ID: "su",
@@ -127,6 +129,10 @@ func (s *Storage) GetUserByCredentials(username string, password string) (*User,
 	user, err := s.GetUser(username)
 	if err != nil {
 		return nil, false, err
+	}
+
+	if user == nil {
+		return nil, false, nil
 	}
 
 	if user.Password != password {

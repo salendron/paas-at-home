@@ -48,6 +48,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"net/http"
+	"github.com/gorilla/mux"
+	"log"
 )
 
 var storage StorageInterface = &Storage{}
@@ -63,25 +66,12 @@ func init() {
 //main is the main entrypoint of the service. It routes all API methods
 //and starts the server on PORT specified in env vars.
 func main() {
-	fmt.Println("test")
-	/*
-		r := mux.NewRouter()
+	r := mux.NewRouter()
 
-		// Topic management
-		r.HandleFunc("/topics", api.CreateTopic).Methods("POST")
-		r.HandleFunc("/topics/{id}", api.UpdateTopic).Methods("PUT")
-		r.HandleFunc("/topics/{id}", api.DeleteTopic).Methods("DELETE")
-		r.HandleFunc("/topics/{id}", api.GetTopic).Methods("GET")
-		r.HandleFunc("/topics", api.ListTopics).Methods("GET")
+	r.HandleFunc("/login", api.UserLogin).Methods("POST")
+	r.HandleFunc("/decode", api.DecodeToken).Methods("POST")
+	r.HandleFunc("/servicelogin", api.ServiceLogin).Methods("POST")
 
-		// Subscription management
-		r.HandleFunc("/subcribe/{topic}", api.Subscribe).Methods("POST")
-		r.HandleFunc("/unsubscribe/{topic}", api.Unsubscribe).Methods("POST")
-
-		// Publish messages
-		r.HandleFunc("/publish", api.Publish).Methods("POST")
-
-		// Bind to a port and pass our router in
-		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", os.Getenv("PORT")), r))
-	*/
+	// Bind to a port and pass our router in
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", os.Getenv("PORT")), r))
 }

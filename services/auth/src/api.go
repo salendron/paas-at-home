@@ -45,6 +45,8 @@ type APIInterface interface {
 	Initialize(storage StorageInterface, tokenbuilder TokenBuilderInterface)
 	UserLogin(w http.ResponseWriter, r *http.Request)
 	RefreshToken(w http.ResponseWriter, r *http.Request)
+	DecodeToken(w http.ResponseWriter, r *http.Request)
+	ServiceLogin(w http.ResponseWriter, r *http.Request)
 }
 
 // API implements APIInterface
@@ -178,6 +180,71 @@ func (a *API) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resp)
+}
+
+// DecodeToken is the API handler to decode and verify access tokens
+func (a *API) DecodeToken(w http.ResponseWriter, r *http.Request){
+	decodeMsg := &DecodeTokenMessage{}
+	err := parseRequestPayload(r.Body, decodeMsg)
+	if err != nil {
+		RaiseError(w, "Invalid request body. Invalid json format", http.StatusBadRequest, ErrorCodeInvalidRequestBody)
+		return
+	}
+
+	token, err := jwt.Parse(decodeMsg.AccessToken, func (token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method %v", token.Header["alg"])
+		}
+		return []byte(os.Getenv("AUTH_ACCESS_SECRET")), nil
+	})
+	if err != nil {
+		RaiseError(w, err.Error(), http.StatusBadRequest, ErrorCodeUnexpectedSigningMethod)
+		return
+	}
+
+	if _, ok := token.Claims.(jwt.MapClaims); !ok && !token.Valid {
+		RaiseError(w, "Invalid token", http.StatusBadRequest, ErrorCodeInvalidToken)
+		return
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		RaiseError(w, "Invalid token claims", http.StatusBadRequest, ErrorCodeInvalidToken)
+		return
+	}
+
+	exp, ok := claims["exp"].(time.Time)
+	if !ok {
+		RaiseError(w, "Missing exp", http.StatusBadRequest, ErrorCodeInvalidToken)
+		return
+	}
+
+	if exp.After(time.Now().UTC()) {
+		RaiseError(w, "Token expired", http.StatusBadRequest, ErrorCodeTokenExpired)
+		return
+	}
+
+	userID, ok := claims["user_id"].(string)
+	if !ok {
+		RaiseError(w, "Missing user id", http.StatusBadRequest, ErrorCodeInvalidToken)
+		return
+	}
+
+	permissions, ok := claims["permissions"].([]*Permission)
+	if !ok {
+		RaiseError(w, "Missing permissions", http.StatusBadRequest, ErrorCodeInvalidToken)
+		return
+	}
+
+	decodedToken := DecodedTokenMessage{
+		UserID: userID,
+		Permissions: permissions,
+		Expires: exp,
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(decodedToken)
 }
 
 // ServiceLogin handles service login api requests

@@ -28,6 +28,10 @@ SOFTWARE.
 */
 package main
 
+import (
+	"time"
+)
+
 
 //UserLoginType defines the API input for a user login
 type UserLoginType struct {
@@ -55,6 +59,18 @@ type ServiceLoginType struct {
 // ServiceTokenType defines the API response for a successful service login
 type ServiceTokenType struct {
 	AccessToken string `json:"access-token"`
+}
+
+// DecodeTokenMessage defines the API Input for TokensToDecode
+type DecodeTokenMessage struct {
+	AccessToken string `json:"access-token"`
+}
+
+//DecodedTokenMessage defines the API response for a successful decoded token
+type DecodedTokenMessage struct {
+	UserID string `json:"user-id"`
+	Permissions []*Permission `json:"permissions"`
+	Expires time.Time `json:"expires"`
 }
 
 //ErrorMessageType defines the API message for errors
