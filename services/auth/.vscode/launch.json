@@ -1,0 +1,24 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch",
+            "type": "go",
+            "mode": "auto",
+            "request": "launch",
+            "program": "${fileDirname}",
+            "env": {
+                "PORT":"7004",
+                "DATA_DIRECTORY":"tmp",
+                "AUTH_ACCESS_SECRET":"myGreatAccessSecret",
+                "AUTH_REFRESH_SECRET":"myGreatRefreshSecret",
+                "AUTH_SERVICE_SECRET":"myGreatServiceSecret",
+                "SU_PWD":"myGreatSuPassword"
+            },
+            "args": []
+        }
+    ]
+}
