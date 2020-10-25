@@ -1,6 +1,6 @@
 /*
-user.go
-Holds the user type.
+permission.go
+Holds the persmission type.
 
 ###################################################################################
 
@@ -28,9 +28,8 @@ SOFTWARE.
 */
 package main
 
-// User contains all information about a user to login
-type User struct {
-	ID          string // Equals Username - has to be unique anyway
-	Password    string
-	Permissions []Permission
+// Permision holds all information about a specific permission
+type Permission struct {
+	Key  string                 `json:"key"`
+	Meta map[string]interface{} `json:"meta"`
 }

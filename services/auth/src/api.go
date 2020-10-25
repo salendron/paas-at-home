@@ -55,7 +55,7 @@ type API struct {
 	Tokenbuilder TokenBuilderInterface
 }
 
-// Initialize initializes the API by setting the active storage and publisher
+// Initialize initializes the API by setting the active storage and tokenbuilder
 func (a *API) Initialize(storage StorageInterface, tokenbuilder TokenBuilderInterface) {
 	a.Storage = storage
 	a.Tokenbuilder = tokenbuilder
