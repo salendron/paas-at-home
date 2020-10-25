@@ -183,7 +183,7 @@ func (a *API) RefreshToken(w http.ResponseWriter, r *http.Request) {
 }
 
 // DecodeToken is the API handler to decode and verify access tokens
-func (a *API) DecodeToken(w http.ResponseWriter, r *http.Request){
+func (a *API) DecodeToken(w http.ResponseWriter, r *http.Request) {
 	decodeMsg := &DecodeTokenMessage{}
 	err := parseRequestPayload(r.Body, decodeMsg)
 	if err != nil {
@@ -191,7 +191,7 @@ func (a *API) DecodeToken(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
-	token, err := jwt.Parse(decodeMsg.AccessToken, func (token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(decodeMsg.AccessToken, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method %v", token.Header["alg"])
 		}
@@ -213,13 +213,14 @@ func (a *API) DecodeToken(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
-	exp, ok := claims["exp"].(time.Time)
+	expValue, ok := claims["exp"].(string)
 	if !ok {
 		RaiseError(w, "Missing exp", http.StatusBadRequest, ErrorCodeInvalidToken)
 		return
 	}
 
-	if exp.After(time.Now().UTC()) {
+	exp, _ := time.Parse(time.RFC3339, expValue)
+	if exp.Before(time.Now().UTC()) {
 		RaiseError(w, "Token expired", http.StatusBadRequest, ErrorCodeTokenExpired)
 		return
 	}
@@ -230,16 +231,18 @@ func (a *API) DecodeToken(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
-	permissions, ok := claims["permissions"].([]*Permission)
-	if !ok {
+	permissionsValue, ok := claims["permissions"].(string)
+	permissions := make([]Permission, 0)
+	err = json.Unmarshal([]byte(permissionsValue), &permissions)
+	if err != nil {
 		RaiseError(w, "Missing permissions", http.StatusBadRequest, ErrorCodeInvalidToken)
 		return
 	}
 
 	decodedToken := DecodedTokenMessage{
-		UserID: userID,
+		UserID:      userID,
 		Permissions: permissions,
-		Expires: exp,
+		Expires:     exp,
 	}
 
 	w.Header().Add("Content-Type", "application/json")

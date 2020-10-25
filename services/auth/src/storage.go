@@ -30,10 +30,10 @@ SOFTWARE.
 package main
 
 import (
-	"log"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -120,8 +120,8 @@ func (s *Storage) GetUserByCredentials(username string, password string) (*User,
 	if username == "su" && password == os.Getenv("SU_PWD") {
 		user := &User{
 			ID: "su",
-			Permissions: []*Permission{
-				&Permission{Key: "ROOT"},
+			Permissions: []Permission{
+				Permission{Key: "ROOT"},
 			},
 		}
 		return user, true, nil
@@ -143,7 +143,7 @@ func (s *Storage) GetUserByCredentials(username string, password string) (*User,
 }
 
 // GetService loads a service. If it does not exist it returns nil as service
-func (s *Storage) GetService(ID string) (*Service, error){
+func (s *Storage) GetService(ID string) (*Service, error) {
 	storagePath, err := s.getDirectoryPath(servicesDirectory)
 	if err != nil {
 		return nil, err
@@ -187,7 +187,3 @@ func (s *Storage) GetServiceByCredentials(ID string, key string) (*Service, bool
 
 	return service, true, nil
 }
-
-
-
-

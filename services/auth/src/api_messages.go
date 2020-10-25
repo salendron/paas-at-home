@@ -32,16 +32,15 @@ import (
 	"time"
 )
 
-
 //UserLoginType defines the API input for a user login
 type UserLoginType struct {
-	Username    string    `json:"username"`
-	Password 	string    `json:"password"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 // UserTokenType defines the API response for a successful user login
 type UserTokenType struct {
-	AccessToken string `json:"access-token"`
+	AccessToken  string `json:"access-token"`
 	RefreshToken string `json:"refresh-token"`
 }
 
@@ -52,7 +51,7 @@ type RefreshTokenRequestType struct {
 
 // ServiceLoginType defines the API input for a service login
 type ServiceLoginType struct {
-	ID string `json:"id"`
+	ID  string `json:"id"`
 	Key string `json:"key"`
 }
 
@@ -68,9 +67,9 @@ type DecodeTokenMessage struct {
 
 //DecodedTokenMessage defines the API response for a successful decoded token
 type DecodedTokenMessage struct {
-	UserID string `json:"user-id"`
-	Permissions []*Permission `json:"permissions"`
-	Expires time.Time `json:"expires"`
+	UserID      string       `json:"user-id"`
+	Permissions []Permission `json:"permissions"`
+	Expires     time.Time    `json:"expires"`
 }
 
 //ErrorMessageType defines the API message for errors
