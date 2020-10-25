@@ -1,19 +1,11 @@
-# DATA-LOGGER
-data-logger is a service that can be used to store custom json data items
-such as logs or sensor data or what ever you want.
-To structure data by type this service implments collections that are dynamically
-created as soon as data is saved to a collection, specified by name.
-It is important to know that data can only queried by collection and timeframe.
-Also data can't be deleted, so consider this as a long term storage for immutable
-data.
-You can use this if you want a very lightweight json data storage for your services.
-It shows how you can split data into seperate data files, read query params using
-mux and also how to lock files during writes using sync.Mutex.
-
-This service is be able to:
-* Store Data 
-* Query Data
-* List all collections
+# AUTH
+Auth is a service that can be used to authenticate user and retrieve
+permissions. Login returns an access and a refresh token. The access token
+can be used to autheticate this user in other services, which can call decode 
+to verify the token. Decode retirns the user's id as well as all permissions
+of this user. The refresh token can be used to refresh a user'S authentication.
+Again, do not use this in production, but it is a nice example on how to
+implment JWT authentication and a refresh mechanism.
 
 ## Development
 This service is developed using Visual Studio Code and requires the following extensions:
@@ -22,79 +14,76 @@ This service is developed using Visual Studio Code and requires the following ex
 * Go
 
 ## Deployment
-This command runs the service on port 7001 and mounts the local directory /media/external/storage/data-logger to /data
-which will be used by the service to write the data files to.
+This command runs the service on port 7004 and mounts the local directory /media/external/storage/auth to /data which will be used by the service to read user data from. IT also sets all secrets and also the password for the super user (su).
 ```
-docker run -d -p 7001:7001 --name data-logger -e PORT='7001' -e DATA_DIRECTORY='/data' -v /var/run/docker.sock:/var/run/docker.sock --restart unless-stopped --mount type=bind,source=/media/external/storage/data-logger,target=/data data-logger:1.0
+docker run -d -p 7004:7004 --name auth -e PORT='7004' -e DATA_DIRECTORY='/data' -e AUTH_ACCESS_SECRET='myGreatAccessSecret' -e AUTH_REFRESH_SECRET='myGreatRefreshSecret' -e AUTH_SERVICE_SECRET='myGreatServiceSecret' -e SU_PWD='myGreatSuPassword' -v /var/run/docker.sock:/var/run/docker.sock --restart unless-stopped --mount type=bind,source=/media/external/storage/auth,target=/data data-logger:1.0
 ```
 
 ## API
-Description and examples (cUrl) of all API calls and models of this service.
+Description and examples (cUrl) of all API calls and models of this service
 
-### Models
-#### Date Item Wrapper Type
-All logged data items get wrapped into a uniform structure that contains a UUID for this item and
-also a created-at timestamp. The original raw data item can be found in "payload".
-```json
-{
-        "uuid":"2020-09-03-b8e33721-eea9-41fc-8173-98c0b23b5dad",
-        "created-at":"2020-09-03T18:07:10.427571Z",
-        "payload":{"valueA":"some custom value","valueB":42}
-}
-```
-
-#### Query Result
-```json
-{
-        "data":[
-                {Data-Item-Wrapper-Item 1}, {Data-Item-Wrapper-Item 2}, ...
-        ]
-}
-```
-
-#### Collection List
-```json
-{
-        "collections":["collection1", "collection2", ...]
-}
-```
-
-#### Error
+### Errors
+All errors are served as an object like this and will return a suitable HTTP
+status code.
 ```json
 {
         "error":{
-                "message":"No value found for key myrealm/myke",
-                "status":404,
+                "message":"Invalid Token",
+                "status":403,
                 "code":3
                 }
 }
 ```
 
 ### Methods
-#### WRITE
-Writes a new data item to a collection. Not existing collections will automatically be created.
-
-This example creates a new data item in collection "mycollection". It will return the created item wrapped in
-the data item wrapper structure.
+#### LOGIN
+Logs in a user using username and password.
 ```
 curl --header "Content-Type: application/json" \
-  --request POST \
-  --data '{"valueA":"some custom value", "valueB": 42}' \
-  http://localhost:7001/mycollection
+        --request POST \ 
+        --data '{"username":"theUsername","password":"thePAssword"}' \
+        http://localhost:7004/login
 ```
 
-#### QUERY
-Query for data items in a collection in a time range.
-u
-This example gets all data items between 2020-09-01T10:30:00Z and 2020-09-03T22:45:00Z in collection "testCollection".
-```
-curl -i 'http://localhost:7001/testCollection?from=2020-09-01T10:30:00Z&to=2020-09-03T22:45:00Z'
+This call returns a access-token and a refresh token for this session.
+Example Response:
+```json
+{
+        "access-token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJleHAiOiIyMDIwLTEwLTI1VDE1OjI4OjA2Ljk5MjE3MTA4MVoiLCJwZXJtaXNzaW9ucyI6Ilt7XCJrZXlcIjpcIlJPT1RcIixcIm1ldGFcIjpudWxsfV0iLCJ1c2VyX2lkIjoic3UifQ.GB9skCdYbnbDsA9IcMiybMRmgNlt4P_F-inUfuvaXZk","refresh-token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJleHAiOiIyMDIwLTExLTAxVDE1OjEzOjA2Ljk5MjE3NDA2M1oiLCJ1c2VyX2lkIjoic3UifQ.ugCGoLxSr2XoJxCTedRVM1mFsT-LZgRh-uyEwTraOsQ"
+}
 ```
 
-#### GET COLLECTIONS
-Gets all collections.
+#### REFRESH TOKEN
+This call generates a new access and refresh token for the session with given refresh token.
+```
+curl --header "Content-Type: application/json" \
+        --request POST \
+        --data '{"refresh-token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJleHAiOiIyMDIwLTExLTAxVDE1OjEzOjA2Ljk5MjE3NDA2M1oiLCJ1c2VyX2lkIjoic3UifQ.ugCGoLxSr2XoJxCTedRVM1mFsT-LZgRh-uyEwTraOsQ"}' \ 
+        http://localhost:7004/refresh
+```
+Example Response:
+```json
+{
+        "access-token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJleHAiOiIyMDIwLTEwLTI1VDE1OjMyOjIxLjMzODgyMjIxNloiLCJwZXJtaXNzaW9ucyI6Ilt7XCJrZXlcIjpcIlJPT1RcIixcIm1ldGFcIjpudWxsfV0iLCJ1c2VyX2lkIjoic3UifQ.N7dloh8YAvyBvEck36Q7moMH1MWNU8iW11A3xNKhLto","refresh-token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJleHAiOiIyMDIwLTExLTAxVDE1OjE3OjIxLjMzODgyMzkzOFoiLCJ1c2VyX2lkIjoic3UifQ.03r_7ImXxLGElpRVpgHCO4jtErKl63SJaF7CEf0yka8"
+}
+```
+
+#### DECODE TOKEN
+This call is used to verify and decode a given access token.
 
 ```
-curl -i http://localhost:7001/info/collections
- 
+curl --header "Content-Type: application/json" \
+        --request POST \ 
+        --data '{"access-token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJleHAiOiIyMDIwLTEwLTI1VDE1OjMyOjIxLjMzODgyMjIxNloiLCJwZXJtaXNzaW9ucyI6Ilt7XCJrZXlcIjpcIlJPT1RcIixcIm1ldGFcIjpudWxsfV0iLCJ1c2VyX2lkIjoic3UifQ.N7dloh8YAvyBvEck36Q7moMH1MWNU8iW11A3xNKhLto"}' \
+        http://localhost:7004/decode
+```
+Example Response:
+```json
+{
+        "user-id":"aUserId",
+        "permissions":[
+                {"key":"ROOT","meta":null}
+        ],
+        "expires":"2020-10-25T15:32:21.338822216Z"
+}
 ```
