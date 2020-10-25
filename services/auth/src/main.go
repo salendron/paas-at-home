@@ -47,10 +47,11 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"net/http"
-	"github.com/gorilla/mux"
 	"log"
+	"net/http"
+	"os"
+
+	"github.com/gorilla/mux"
 )
 
 var storage StorageInterface = &Storage{}
@@ -70,6 +71,7 @@ func main() {
 
 	r.HandleFunc("/login", api.UserLogin).Methods("POST")
 	r.HandleFunc("/decode", api.DecodeToken).Methods("POST")
+	r.HandleFunc("/refresh", api.RefreshToken).Methods("POST")
 	r.HandleFunc("/servicelogin", api.ServiceLogin).Methods("POST")
 
 	// Bind to a port and pass our router in

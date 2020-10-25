@@ -138,13 +138,14 @@ func (a *API) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exp, ok := claims["exp"].(time.Time)
+	expValue, ok := claims["exp"].(string)
 	if !ok {
 		RaiseError(w, "Missing exp", http.StatusBadRequest, ErrorCodeInvalidToken)
 		return
 	}
 
-	if exp.After(time.Now().UTC()) {
+	exp, _ := time.Parse(time.RFC3339, expValue)
+	if exp.Before(time.Now().UTC()) {
 		RaiseError(w, "Token expired", http.StatusUnauthorized, ErrorCodeTokenExpired)
 		return
 	}
