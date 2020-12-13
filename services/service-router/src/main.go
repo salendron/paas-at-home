@@ -41,76 +41,37 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+ ./oapi-codegen /home/ubuntu/git/paas-at-home/services/service-router/openapi.json > /home/ubuntu/git/paas-at-home/services/service-router/src/servicerouter.gen.go
+
 */
 
 package main
 
 import (
-	"errors"
 	"fmt"
-	"log"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
-	"strings"
+
+	"github.com/labstack/echo/v4"
 )
 
-// getTargetUrl tries to get the target URL specified for given service name.
-// returns an error if there is no service configured for given target name.
-func getTargetUrl(targetName string) (string, error) {
-	cleanTargetName := strings.ToUpper(strings.TrimSpace(targetName))
-
-	if targetUrl, ok := os.LookupEnv(cleanTargetName); ok {
-		return targetUrl, nil
-	}
-
-	return "", errors.New(fmt.Sprintf("No target specified for '%v'", cleanTargetName))
+type APIImpl struct {
 }
 
-// serveProxy starts the - non-blocking - reverse proxy for the current request
-func serveProxy(targetUrl string, w http.ResponseWriter, r *http.Request) error {
-	url, err := url.Parse(targetUrl)
-	if err != nil {
+func (api *APIImpl) RegisterService(ctx echo.Context) error {
+	s := new(Service)
+	if err := ctx.Bind(s); err != nil {
 		return err
 	}
-
-	proxy := httputil.NewSingleHostReverseProxy(url)
-
-	r.URL.Host = url.Host
-	r.URL.Scheme = url.Scheme
-	r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
-	r.Host = url.Host
-
-	//non blocking
-	proxy.ServeHTTP(w, r)
-
-	return nil
+	return ctx.JSON(http.StatusCreated, s)
 }
 
-// handleRedirect handles all incoming requests. It reads X-TargetService
-// header to determine which target service to use and then proceeds to start
-// a proxy using serveProxy function.
-func handleRedirect(w http.ResponseWriter, r *http.Request) {
-	targetName := r.Header.Get("X-TargetService")
-	if len(targetName) == 0 {
-		RaiseError(w, "Missing X-TargetService", http.StatusBadRequest, ErrorCodeMissingTargetServiceName)
-		return
-	}
-
-	targetUrl, err := getTargetUrl(targetName)
-	if err != nil {
-		RaiseError(w, fmt.Sprintf("No service specified for target %v", targetName), http.StatusBadRequest, ErrorCodeUnknownTargetService)
-		return
-	}
-
-	serveProxy(targetUrl, w, r)
-}
-
-// main is the main entrypoint of the service. It starts the server on PORT
-// specified in env vars and routes everthing to handleRedirect.
 func main() {
-	// Serve router
-	http.HandleFunc("/", handleRedirect)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", os.Getenv("PORT")), nil))
+	var api APIImpl
+
+	e := echo.New()
+	RegisterHandlers(e, &api)
+
+	e.Logger.Fatal(e.Start(fmt.Sprintf(":%v", os.Getenv("PORT"))))
 }

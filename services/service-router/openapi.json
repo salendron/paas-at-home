@@ -1,0 +1,81 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Service Router API",
+    "description": "This API is used to register services and to expose information about them.",
+    "license": {
+      "name": "TODO",
+      "url": "http://todo.com"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:7000",
+      "variables": {}
+    }
+  ],
+  "paths": {
+    "/register": {
+      "post": {
+        "summary": "registerService",
+        "description": "Register a new service",
+        "operationId": "registerService",
+        "parameters": [],
+        "requestBody": {
+          "description": "Service object to register",
+          "content": {
+            "application/json": {
+              "schema": {
+                "description": "Service object to register",
+                "$ref": "#/components/schemas/Service"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "description": "Service object to register",
+                  "$ref": "#/components/schemas/Service"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Invalid input"
+          }
+        },
+        "deprecated": false,
+        "x-operation-settings": {
+          "CollectParameters": false,
+          "AllowDynamicQueryParameters": false,
+          "AllowDynamicFormParameters": false,
+          "IsMultiContentStreaming": false
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Service": {
+        "title": "Service",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "definitionPath": {
+            "type": "string"
+          }  
+        }
+      }
+    }
+  } 
+}

@@ -37,3 +37,5 @@ the service name of the target service, as specified in the router'S env vars.
 ```
 curl -i http://localhost:6000/get -H "X-TargetService: TESTHOST_A"
 ```
+
+curl --header "Content-Type: application/json" --request POST --data '{"definitionPath":"path","name":"theName", "version":"v1"}' http://localhost:6000/register
