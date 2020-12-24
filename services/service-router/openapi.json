@@ -73,7 +73,16 @@
           },
           "definitionPath": {
             "type": "string"
-          }  
+          },
+          "address": {
+            "type": "string"
+          },
+          "latency": {
+            "type": "integer"
+          },
+          "isHealthy": {
+            "type": "boolean"
+          } 
         }
       }
     }

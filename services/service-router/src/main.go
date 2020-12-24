@@ -50,22 +50,10 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 
 	"github.com/labstack/echo/v4"
 )
-
-type APIImpl struct {
-}
-
-func (api *APIImpl) RegisterService(ctx echo.Context) error {
-	s := new(Service)
-	if err := ctx.Bind(s); err != nil {
-		return err
-	}
-	return ctx.JSON(http.StatusCreated, s)
-}
 
 func main() {
 	var api APIImpl

@@ -22,7 +22,10 @@ import (
 
 // Service defines model for Service.
 type Service struct {
+	Address        *string `json:"address,omitempty"`
 	DefinitionPath *string `json:"definitionPath,omitempty"`
+	IsHealthy      *bool   `json:"isHealthy,omitempty"`
+	Latency        *int    `json:"latency,omitempty"`
 	Name           *string `json:"name,omitempty"`
 	Version        *string `json:"version,omitempty"`
 }
@@ -329,15 +332,15 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/5xTT2/bPgz9KgJ/v6Mbe/8wwLeuxYAchmZtb8MOqszEKiRRE+k0QeDvPkiu12TJaTeB",
-	"pB/fe3w+gCEfKWAQhvYAbHr0ujwfMG2twfyMiSImsVgaHa5tsGIprLT0uSL7iNACS7JhA2MFQXu82Nhi",
-	"YkvhQm+sQKy4XJo3V/MMPT2jERjzkA1rmliwSTZKQYPH3rK6Xi2VZTUwdkpIJdxYFkyKJzxWOpQG7iIx",
-	"qoyUvM4ISj/RIEp69AuowFmDgYuCSQk83t3eQQVDctBCLxLbuhbqaGHIwzl1dU9D3ny9WsKRaHi3aBZN",
-	"nqeIQUcLLXwopQqilr7YW8+8i/PEcq72flamVcCXWR8U2FQELbujsTc/E/4akOULdfuMaigIhrJAx+is",
-	"Kd/WzzxdaApDfv2fcA0t/Fe/paV+jUo9o5frnPKc3Zjud3yTVy42YQetpAHHXOBIgaeQvW+avxgK7qSO",
-	"Ttt/4zZW8LH5dO7lMmy1s52yIQ5SYsiD9zrtoYV0ZuDu6o/FV4wiNmwK3Wvn6OV2H7S35islv9JJexRM",
-	"DO1aO8bqZOT7gGl/YeaGnEMjFzpL/jY4sTeTHw+SUPv830z9SV/OQfnmx+E0qY6Mdj2xtJ+bpoHx5/g7",
-	"AAD//2GXyY34AwAA",
+	"H4sIAAAAAAAC/5xTwW7bOhD8FWLfOyqW3muLArqlCYr6UMRNcit6YKi1tQHFZbmrJEagfy9IRY1T+9Qb",
+	"wVmOZnZGz+B4iBwwqED7DOJ6HGw53mB6IIf5GBNHTEpYANt1CaUcdR8RWhBNFHYwVdDhlgIpcdhY7U+O",
+	"kHxB67XfH6B3zB5tyLC3isEdghQUd5gyGOyAJ0kfMAlxOIFNFSipz1eLo2qZ4bt7dApTHqKw5fy8Q3GJ",
+	"ohY2uO1JzPlmbUjMKNgZZZNwR6KYjMx8YmwoAD5FFjSZKQ02Mxh7x6Ma7XFYQQWeHAYpDmYncHt1eQUV",
+	"jMlDC71qbOtaueOV4wGOpZtrHvOXzzdrODAN/62aVZPnOWKwkaCFd+Wqgmi1L1nVi+6SKIseu71enFkT",
+	"8HHxB4U2FUPr7mDsdZ8Jf44o+om7EpzjoBjKB2yMnlx5W9/LnNBcsnz6N+EWWvinfm1h/VLBemEv6bzV",
+	"uWxjzu8wkxctlLCDVtOIU76QyEHm8v7fNH8oVHzSOnpLf6dtquB98+F4l+vwYD11hkIctdRQxmGwaQ8t",
+	"pKMFPp39XvGZoCqFXZF77j0/Xu6DHch95jRsbLIDKiaBdmu9YPVm5NuIaX9i5oK9R6cnkLV8Hb3SxbyP",
+	"G01oh/zfzPjsL/egvPn+/Lapnp31PYu2H5umgenH9CsAAP//zpWD1VAEAAA=",
 }
 
 // GetSwagger returns the Swagger specification corresponding to the generated code
