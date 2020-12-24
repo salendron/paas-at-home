@@ -36,8 +36,9 @@
         },
         "responses": {
           "200": {
+            "description": "Register a Service",
             "content": {
-              "text/plain": {
+              "application/json": {
                 "schema": {
                   "description": "Service object to register",
                   "$ref": "#/components/schemas/Service"
