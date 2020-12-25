@@ -29,47 +29,27 @@ SOFTWARE.
 package main
 
 import (
-	"encoding/json"
 	"log"
-	"net/http"
+
+	"github.com/labstack/echo/v4"
 )
 
 // ErrorCode defines all possible errors codes of this service
-type ErrorCode int
-
 const (
-	ErrorCodeInternal                 ErrorCode = 0
-	ErrorCodeMissingTargetServiceName           = 1
-	ErrorCodeUnknownTargetService               = 2
+	ErrorCodeInternal             = 0
+	ErrorCodeInvalidRequestBody   = 1
+	ErrorCodeUnknownTargetService = 2
 )
 
-// ErrorMessage holds all information of a certain error
-type ErrorMessage struct {
-	Message    string    `json:"message"`
-	StatusCode int       `json:"status"`
-	Code       ErrorCode `json:"code"`
-}
-
-//ErrorMessageType defines the API message for errors
-type ErrorMessageType struct {
-	Error interface{} `json:"error"`
-}
-
 // RaiseError logs and returns a given error via on the current http request
-func RaiseError(w http.ResponseWriter, message string, statusCode int, code ErrorCode) {
-	errorMessage := ErrorMessage{
-		Message:    message,
-		StatusCode: statusCode,
-		Code:       code,
+func RaiseError(ctx echo.Context, message string, statusCode int, code int) error {
+	errorMessage := Error{
+		Message: &message,
+		Status:  &statusCode,
+		Code:    &code,
 	}
 
-	log.Printf("Error: %v. HTTP Status: %v Code: %v", errorMessage.Message, errorMessage.StatusCode, errorMessage.Code)
+	log.Printf("Error: %v. HTTP Status: %v Code: %v", errorMessage.Message, errorMessage.Code, errorMessage.Code)
 
-	response := ErrorMessageType{
-		Error: errorMessage,
-	}
-
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(response)
+	return ctx.JSON(statusCode, errorMessage)
 }

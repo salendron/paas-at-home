@@ -56,10 +56,18 @@ import (
 )
 
 func main() {
-	var api APIImpl
+	var storage CachedSQLiteStorage
+	storage.Initialize("./test.db")
+
+	var api API
+	api.SetStorage(&storage)
 
 	e := echo.New()
 	RegisterHandlers(e, &api)
+
+	// Start HealthChecks
+	healthCheck := &HealthCheck{}
+	healthCheck.DoHealthChecks(&storage)
 
 	e.Logger.Fatal(e.Start(fmt.Sprintf(":%v", os.Getenv("PORT"))))
 }

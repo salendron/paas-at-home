@@ -81,7 +81,8 @@ func (s *CachedSQLiteStorage) SaveService(service *Service) error {
 
 	existingServiceModel := s.getServiceModelByPathIdentifiers(*service.Name, *service.Version, *service.Address)
 	if existingServiceModel != nil {
-		existingServiceModel.IsHealthy = true
+		existingServiceModel.IsHealthy = *(service.IsHealthy)
+		existingServiceModel.Latency = *(service.Latency)
 		tx := db.Save(existingServiceModel)
 		if tx.Error != nil {
 			return tx.Error

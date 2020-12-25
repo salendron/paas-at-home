@@ -11,12 +11,12 @@
   },
   "servers": [
     {
-      "url": "http://localhost:7000",
+      "url": "http://localhost:6000",
       "variables": {}
     }
   ],
   "paths": {
-    "/register": {
+    "/servicerouter/v1/register": {
       "post": {
         "summary": "registerService",
         "description": "Register a new service",
@@ -46,8 +46,16 @@
               }
             }
           },
-          "405": {
-            "description": "Invalid input"
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "description": "Bad Request Error",
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "deprecated": false,
@@ -84,6 +92,20 @@
           "isHealthy": {
             "type": "boolean"
           } 
+        }
+      },"Error": {
+        "title": "Error",
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          }
         }
       }
     }

@@ -20,6 +20,13 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Error defines model for Error.
+type Error struct {
+	Code    *int    `json:"code,omitempty"`
+	Message *string `json:"message,omitempty"`
+	Status  *int    `json:"status,omitempty"`
+}
+
 // Service defines model for Service.
 type Service struct {
 	Address        *string `json:"address,omitempty"`
@@ -165,7 +172,7 @@ func NewRegisterServiceRequestWithBody(server string, contentType string, body i
 		return nil, err
 	}
 
-	basePath := fmt.Sprintf("/register")
+	basePath := fmt.Sprintf("/servicerouter/v1/register")
 	if basePath[0] == '/' {
 		basePath = basePath[1:]
 	}
@@ -222,6 +229,8 @@ type ClientWithResponsesInterface interface {
 type RegisterServiceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON200      *Service
+	JSON400      *Error
 }
 
 // Status returns HTTPResponse.Status
@@ -271,6 +280,20 @@ func ParseRegisterServiceResponse(rsp *http.Response) (*RegisterServiceResponse,
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Service
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	}
 
 	return response, nil
@@ -279,7 +302,7 @@ func ParseRegisterServiceResponse(rsp *http.Response) (*RegisterServiceResponse,
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// registerService
-	// (POST /register)
+	// (POST /servicerouter/v1/register)
 	RegisterService(ctx echo.Context) error
 }
 
@@ -325,22 +348,23 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
-	router.POST(baseURL+"/register", wrapper.RegisterService)
+	router.POST(baseURL+"/servicerouter/v1/register", wrapper.RegisterService)
 
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/5xTwW7bOhD8FWLfOyqW3muLArqlCYr6UMRNcit6YKi1tQHFZbmrJEagfy9IRY1T+9Qb",
-	"wVmOZnZGz+B4iBwwqED7DOJ6HGw53mB6IIf5GBNHTEpYANt1CaUcdR8RWhBNFHYwVdDhlgIpcdhY7U+O",
-	"kHxB67XfH6B3zB5tyLC3isEdghQUd5gyGOyAJ0kfMAlxOIFNFSipz1eLo2qZ4bt7dApTHqKw5fy8Q3GJ",
-	"ohY2uO1JzPlmbUjMKNgZZZNwR6KYjMx8YmwoAD5FFjSZKQ02Mxh7x6Ma7XFYQQWeHAYpDmYncHt1eQUV",
-	"jMlDC71qbOtaueOV4wGOpZtrHvOXzzdrODAN/62aVZPnOWKwkaCFd+Wqgmi1L1nVi+6SKIseu71enFkT",
-	"8HHxB4U2FUPr7mDsdZ8Jf44o+om7EpzjoBjKB2yMnlx5W9/LnNBcsnz6N+EWWvinfm1h/VLBemEv6bzV",
-	"uWxjzu8wkxctlLCDVtOIU76QyEHm8v7fNH8oVHzSOnpLf6dtquB98+F4l+vwYD11hkIctdRQxmGwaQ8t",
-	"pKMFPp39XvGZoCqFXZF77j0/Xu6DHch95jRsbLIDKiaBdmu9YPVm5NuIaX9i5oK9R6cnkLV8Hb3SxbyP",
-	"G01oh/zfzPjsL/egvPn+/Lapnp31PYu2H5umgenH9CsAAP//zpWD1VAEAAA=",
+	"H4sIAAAAAAAC/7xTzW7cPAx8FYPfd3TWm7bowbf8tOgeimyT3IoeFJu7ViCJKkknMYJ990JynDhYH4ue",
+	"bHCGP8MRn6EhHylgUIH6GaTp0Jv8+4WZOP1EpoisFnO4oRbTV4eIUIMNintkOJTgUcTs56Ao27BPmKjR",
+	"XpbyDiWoVZdiY8dyotDdPTaasm+QH2yDx8OYtmUUWWzZ4s4Gq5bC1mi3SLHyDY3Tbpihd0QOTUiwM4qh",
+	"GZbVBuOXpT4gi6WwgM2kToqOxCaSDTtK6S1KwzZqrga3nZXibLsprBS9YFsoFYx7K4pcyFhPChMygE+R",
+	"BItUib1JFQpzR70W2qFfQQnONhgkKxiVwO3V5RWU0LODGjrVWFeVUkurhjwcj15cU586n203MBMNp6v1",
+	"ap34FDGYaKGGjzlUQjTaZa+ql3E5l6geTqtJSLaYRI/lX09STRHwcRIMuQ9nhZt2RntbMOPvHkXPqR3G",
+	"9xsUQ25gYnS2ybnVvYyWjQeQ/v5n3EEN/1VvF1K9nEc1Vc92vZ9zWs9o6Nykl1ksYwu1co+HFJBIQcbX",
+	"/GG9/hcTzjb5yirh019sPh7yQutz0xbXox/5HKT33vAANfCRb08nr86eCKrasM9bOnOOHi+HYLxtvhL7",
+	"rWHjUZEF6p1xguU7yo8eeVjgXJBz2OgCspHvvVN7MW7iRhmNT/c74ocsKz2/nPPz+f3FOGqM60i0/rxe",
+	"r+Hw6/AnAAD//6ra37FjBQAA",
 }
 
 // GetSwagger returns the Swagger specification corresponding to the generated code
