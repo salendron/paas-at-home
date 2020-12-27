@@ -41,3 +41,8 @@ func (api *API) RegisterService(ctx echo.Context) error {
 
 	return ctx.JSON(http.StatusCreated, s)
 }
+
+func (api *API) ListServices(ctx echo.Context) error {
+	services := api.Storage.GetAllServices()
+	return ctx.JSON(http.StatusOK, services)
+}

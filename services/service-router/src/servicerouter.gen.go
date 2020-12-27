@@ -120,6 +120,9 @@ type ClientInterface interface {
 	RegisterServiceWithBody(ctx context.Context, contentType string, body io.Reader) (*http.Response, error)
 
 	RegisterService(ctx context.Context, body RegisterServiceJSONRequestBody) (*http.Response, error)
+
+	// ListServices request
+	ListServices(ctx context.Context) (*http.Response, error)
 }
 
 func (c *Client) RegisterServiceWithBody(ctx context.Context, contentType string, body io.Reader) (*http.Response, error) {
@@ -139,6 +142,21 @@ func (c *Client) RegisterServiceWithBody(ctx context.Context, contentType string
 
 func (c *Client) RegisterService(ctx context.Context, body RegisterServiceJSONRequestBody) (*http.Response, error) {
 	req, err := NewRegisterServiceRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if c.RequestEditor != nil {
+		err = c.RequestEditor(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListServices(ctx context.Context) (*http.Response, error) {
+	req, err := NewListServicesRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -191,6 +209,33 @@ func NewRegisterServiceRequestWithBody(server string, contentType string, body i
 	return req, nil
 }
 
+// NewListServicesRequest generates requests for ListServices
+func NewListServicesRequest(server string) (*http.Request, error) {
+	var err error
+
+	queryUrl, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	basePath := fmt.Sprintf("/servicerouter/v1/services")
+	if basePath[0] == '/' {
+		basePath = basePath[1:]
+	}
+
+	queryUrl, err = queryUrl.Parse(basePath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryUrl.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // ClientWithResponses builds on ClientInterface to offer response payloads
 type ClientWithResponses struct {
 	ClientInterface
@@ -224,6 +269,9 @@ type ClientWithResponsesInterface interface {
 	RegisterServiceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader) (*RegisterServiceResponse, error)
 
 	RegisterServiceWithResponse(ctx context.Context, body RegisterServiceJSONRequestBody) (*RegisterServiceResponse, error)
+
+	// ListServices request
+	ListServicesWithResponse(ctx context.Context) (*ListServicesResponse, error)
 }
 
 type RegisterServiceResponse struct {
@@ -249,6 +297,28 @@ func (r RegisterServiceResponse) StatusCode() int {
 	return 0
 }
 
+type ListServicesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]Service
+}
+
+// Status returns HTTPResponse.Status
+func (r ListServicesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListServicesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // RegisterServiceWithBodyWithResponse request with arbitrary body returning *RegisterServiceResponse
 func (c *ClientWithResponses) RegisterServiceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader) (*RegisterServiceResponse, error) {
 	rsp, err := c.RegisterServiceWithBody(ctx, contentType, body)
@@ -264,6 +334,15 @@ func (c *ClientWithResponses) RegisterServiceWithResponse(ctx context.Context, b
 		return nil, err
 	}
 	return ParseRegisterServiceResponse(rsp)
+}
+
+// ListServicesWithResponse request returning *ListServicesResponse
+func (c *ClientWithResponses) ListServicesWithResponse(ctx context.Context) (*ListServicesResponse, error) {
+	rsp, err := c.ListServices(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListServicesResponse(rsp)
 }
 
 // ParseRegisterServiceResponse parses an HTTP response from a RegisterServiceWithResponse call
@@ -299,11 +378,40 @@ func ParseRegisterServiceResponse(rsp *http.Response) (*RegisterServiceResponse,
 	return response, nil
 }
 
+// ParseListServicesResponse parses an HTTP response from a ListServicesWithResponse call
+func ParseListServicesResponse(rsp *http.Response) (*ListServicesResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer rsp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListServicesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []Service
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// registerService
 	// (POST /servicerouter/v1/register)
 	RegisterService(ctx echo.Context) error
+	// listServices
+	// (GET /servicerouter/v1/services)
+	ListServices(ctx echo.Context) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -317,6 +425,15 @@ func (w *ServerInterfaceWrapper) RegisterService(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.RegisterService(ctx)
+	return err
+}
+
+// ListServices converts echo context to params.
+func (w *ServerInterfaceWrapper) ListServices(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.ListServices(ctx)
 	return err
 }
 
@@ -349,22 +466,24 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.POST(baseURL+"/servicerouter/v1/register", wrapper.RegisterService)
+	router.GET(baseURL+"/servicerouter/v1/services", wrapper.ListServices)
 
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/7xTzW7cPAx8FYPfd3TWm7bowbf8tOgeimyT3IoeFJu7ViCJKkknMYJ990JynDhYH4ue",
-	"bHCGP8MRn6EhHylgUIH6GaTp0Jv8+4WZOP1EpoisFnO4oRbTV4eIUIMNintkOJTgUcTs56Ao27BPmKjR",
-	"XpbyDiWoVZdiY8dyotDdPTaasm+QH2yDx8OYtmUUWWzZ4s4Gq5bC1mi3SLHyDY3Tbpihd0QOTUiwM4qh",
-	"GZbVBuOXpT4gi6WwgM2kToqOxCaSDTtK6S1KwzZqrga3nZXibLsprBS9YFsoFYx7K4pcyFhPChMygE+R",
-	"BItUib1JFQpzR70W2qFfQQnONhgkKxiVwO3V5RWU0LODGjrVWFeVUkurhjwcj15cU586n203MBMNp6v1",
-	"ap34FDGYaKGGjzlUQjTaZa+ql3E5l6geTqtJSLaYRI/lX09STRHwcRIMuQ9nhZt2RntbMOPvHkXPqR3G",
-	"9xsUQ25gYnS2ybnVvYyWjQeQ/v5n3EEN/1VvF1K9nEc1Vc92vZ9zWs9o6Nykl1ksYwu1co+HFJBIQcbX",
-	"/GG9/hcTzjb5yirh019sPh7yQutz0xbXox/5HKT33vAANfCRb08nr86eCKrasM9bOnOOHi+HYLxtvhL7",
-	"rWHjUZEF6p1xguU7yo8eeVjgXJBz2OgCspHvvVN7MW7iRhmNT/c74ocsKz2/nPPz+f3FOGqM60i0/rxe",
-	"r+Hw6/AnAAD//6ra37FjBQAA",
+	"H4sIAAAAAAAC/7xUTW/UQAz9KyPDMd1sAXHIrR8gVgJ1aXtDHKaJdzPVZBxsp21U7X9HM2m2WW0OSCBO",
+	"icZv7Pf87HmGkpqWAgYVKJ5Byhobm34/MRPHn5apRVaH6bikCuNX+xahABcUt8iwy6BBEbudBkXZhW2M",
+	"iVrtZO7eLgN16uPZUDEbIXR3j6XG2zfID67EYzK2qhhFZktWuHHBqaOwtlrPQpx8Qeu17ifROyKPNsSw",
+	"t4qh7OfVBtvMS31AFkdhJjaROio6EhtBLmwoXq9QSnatpmxwWzsxZ+uVcWI6wcooGcatE0U2MuQTY0MK",
+	"4FNLgiZm4sbGDMbeUadGa2wWkIF3JQZJCgYlcHt1eQUZdOyhgFq1LfJcqaJFSQ0cUzfX1MXKZ+sVTETD",
+	"6WK5WEY8tRhs66CA9+kog9ZqnbzKX+hySpE/nOajkGQxiR7Lvx6lWhPwcRQMqQ4nhatqAnttMOOvDkXP",
+	"qeqH+Q2KIRWwbetdme7m9zJYNixA/HvLuIEC3uSvG5K/rEc+Zk92HfIc2zMYOjXphYtjrKBQ7nAXD6Sl",
+	"IMM0v1su/wfDSSf3qAw+/MPiwyLPlD63lbke/EjrIF3TWO6hAD7y7elk7+yJoKoL29SlM+/p8bIPtnHl",
+	"Z+Jmbdk2qMgCxcZ6wewA8r1D7mcwF+Q9ljoTWcm3zqu7GDpxo4y2ifs7xJOq4wEeFzAy3OLM/H51omKs",
+	"9/tdPZrdCLl5Df7VbDjFRv54SPbPkGW2/ZxzkZuhzV5AGV/gQwv9lH5KEYGpsz+eD98VT6X1NYkWH5fL",
+	"Jex+7n4HAAD//5VCstiJBgAA",
 }
 
 // GetSwagger returns the Swagger specification corresponding to the generated code
