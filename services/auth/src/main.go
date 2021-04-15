@@ -4,8 +4,8 @@ AUTH
 Auth is a service that can be used to authenticate user and retrieve
 permissions. Login returns an access and a refresh token. The access token
 can be used to autheticate this user in other services, which can call decode
-to verify the token. Decode retirns the user's id as well as all permissions
-of this user. The refresh token can be used to refresh a user'S authentication.
+to verify the token. Decode returns the user's id as well as all permissions
+of this user. The refresh token can be used to refresh a user's authentication.
 Again, do not use this in production, but it is a nice example on how to
 implment JWT authentication and a refresh mechanism.
 
@@ -45,32 +45,33 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 
-	"github.com/gorilla/mux"
+	"github.com/labstack/echo"
 )
 
-var storage StorageInterface = &Storage{}
+var storage StorageInterface = nil
 var tokenbuilder TokenBuilderInterface = &TokenBuilder{}
 var api APIInterface = &API{}
-
-//init initializes storage and api
-func init() {
-	storage.Initialize(os.Getenv("DATA_DIRECTORY"))
-	api.Initialize(storage, tokenbuilder)
-}
 
 //main is the main entrypoint of the service. It routes all API methods
 //and starts the server on PORT specified in env vars.
 func main() {
-	r := mux.NewRouter()
+	dbStorage := &Storage{}
+	err := dbStorage.Connect(os.Getenv("DSN"))
+	if err != nil {
+		log.Fatalf("DB Connection failed: %v", err)
+	}
+	storage = dbStorage
 
-	r.HandleFunc("/login", api.UserLogin).Methods("POST")
-	r.HandleFunc("/decode", api.DecodeToken).Methods("POST")
-	r.HandleFunc("/refresh", api.RefreshToken).Methods("POST")
-	r.HandleFunc("/servicelogin", api.ServiceLogin).Methods("POST")
+	api.Initialize(storage, tokenbuilder)
+
+	e := echo.New()
+
+	e.POST("/login", api.UserLogin)
+	e.POST("/decode", api.DecodeToken)
+	e.POST("/refresh", api.RefreshToken)
 
 	// Bind to a port and pass our router in
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%v", os.Getenv("PORT")), r))
+	e.Logger.Fatal(e.Start(fmt.Sprintf(":%v", os.Getenv("PORT"))))
 }

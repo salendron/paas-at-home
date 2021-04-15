@@ -38,15 +38,15 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/labstack/echo"
 )
 
 // APIInterface defines the interface of the RESTful API
 type APIInterface interface {
 	Initialize(storage StorageInterface, tokenbuilder TokenBuilderInterface)
-	UserLogin(w http.ResponseWriter, r *http.Request)
-	RefreshToken(w http.ResponseWriter, r *http.Request)
-	DecodeToken(w http.ResponseWriter, r *http.Request)
-	ServiceLogin(w http.ResponseWriter, r *http.Request)
+	UserLogin(c echo.Context) error
+	RefreshToken(c echo.Context) error
+	DecodeToken(c echo.Context) error
 }
 
 // API implements APIInterface
@@ -72,29 +72,25 @@ func parseRequestPayload(rc io.ReadCloser, dst interface{}) error {
 }
 
 // UserLogin handles user login api requests
-func (a *API) UserLogin(w http.ResponseWriter, r *http.Request) {
-	loginMsg := &UserLoginType{}
-	err := parseRequestPayload(r.Body, loginMsg)
+func (a *API) UserLogin(c echo.Context) error {
+	loginMsg := new(UserLoginType)
+	err := c.Bind(loginMsg)
 	if err != nil {
-		RaiseError(w, "Invalid request body. Invalid Json format", http.StatusBadRequest, ErrorCodeInvalidRequestBody)
-		return
+		return err
 	}
 
-	user, ok, err := a.Storage.GetUserByCredentials(loginMsg.Username, loginMsg.Password)
+	user, err := a.Storage.GetUserByCredentials(loginMsg.Username, loginMsg.Password)
 	if err != nil {
-		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
-		return
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	if !ok {
-		RaiseError(w, "Login failed", http.StatusUnauthorized, ErrorCodeLoginFailed)
-		return
+	if user == nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Login failed")
 	}
 
 	td, err := a.Tokenbuilder.CreateUserToken(user)
 	if err != nil {
-		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
-		return
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	resp := UserTokenType{
@@ -102,18 +98,15 @@ func (a *API) UserLogin(w http.ResponseWriter, r *http.Request) {
 		RefreshToken: td.RefreshToken,
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(resp)
+	return c.JSON(http.StatusOK, resp)
 }
 
 // RefreshToken is the API Handler for token refresh requests
-func (a *API) RefreshToken(w http.ResponseWriter, r *http.Request) {
-	refreshMsg := &RefreshTokenRequestType{}
-	err := parseRequestPayload(r.Body, refreshMsg)
+func (a *API) RefreshToken(c echo.Context) error {
+	refreshMsg := new(RefreshTokenRequestType)
+	err := c.Bind(refreshMsg)
 	if err != nil {
-		RaiseError(w, "Invalid request body. Invalid Json format", http.StatusBadRequest, ErrorCodeInternal)
-		return
+		return err
 	}
 
 	token, err := jwt.Parse(refreshMsg.RefreshToken, func(token *jwt.Token) (interface{}, error) {
@@ -123,54 +116,45 @@ func (a *API) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		return []byte(os.Getenv("AUTH_REFRESH_SECRET")), nil
 	})
 	if err != nil {
-		RaiseError(w, err.Error(), http.StatusBadRequest, ErrorCodeUnexpectedSigningMethod)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
 	if _, ok := token.Claims.(jwt.MapClaims); !ok && !token.Valid {
-		RaiseError(w, "Invalid Token", http.StatusBadRequest, ErrorCodeInvalidToken)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid Token")
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		RaiseError(w, "Invalid token claims", http.StatusBadRequest, ErrorCodeInvalidToken)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid Token Claims")
 	}
 
 	expValue, ok := claims["exp"].(string)
 	if !ok {
-		RaiseError(w, "Missing exp", http.StatusBadRequest, ErrorCodeInvalidToken)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing exp")
 	}
 
 	exp, _ := time.Parse(time.RFC3339, expValue)
 	if exp.Before(time.Now().UTC()) {
-		RaiseError(w, "Token expired", http.StatusUnauthorized, ErrorCodeTokenExpired)
-		return
+		return echo.NewHTTPError(http.StatusUnauthorized, "Token expired")
 	}
 
-	userID, ok := claims["user_id"].(string)
+	userID, ok := claims["user_id"].(int)
 	if !ok {
-		RaiseError(w, "Missing user_id", http.StatusBadRequest, ErrorCodeInvalidToken)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing user_id")
 	}
 
-	user, err := a.Storage.GetUser(userID)
+	user, err := a.Storage.GetUserByID(userID)
 	if err != nil {
-		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
-		return
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	if user == nil {
-		RaiseError(w, fmt.Sprintf("Unknown user %v", userID), http.StatusBadRequest, ErrorCodeInvalidToken)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Unknown user %v", userID))
 	}
 
 	td, err := a.Tokenbuilder.CreateUserToken(user)
 	if err != nil {
-		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
-		return
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	resp := &UserTokenType{
@@ -178,18 +162,15 @@ func (a *API) RefreshToken(w http.ResponseWriter, r *http.Request) {
 		RefreshToken: td.RefreshToken,
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(resp)
+	return c.JSON(http.StatusOK, resp)
 }
 
 // DecodeToken is the API handler to decode and verify access tokens
-func (a *API) DecodeToken(w http.ResponseWriter, r *http.Request) {
-	decodeMsg := &DecodeTokenMessage{}
-	err := parseRequestPayload(r.Body, decodeMsg)
+func (a *API) DecodeToken(c echo.Context) error {
+	decodeMsg := new(DecodeTokenMessage)
+	err := c.Bind(decodeMsg)
 	if err != nil {
-		RaiseError(w, "Invalid request body. Invalid json format", http.StatusBadRequest, ErrorCodeInvalidRequestBody)
-		return
+		return err
 	}
 
 	token, err := jwt.Parse(decodeMsg.AccessToken, func(token *jwt.Token) (interface{}, error) {
@@ -199,45 +180,38 @@ func (a *API) DecodeToken(w http.ResponseWriter, r *http.Request) {
 		return []byte(os.Getenv("AUTH_ACCESS_SECRET")), nil
 	})
 	if err != nil {
-		RaiseError(w, err.Error(), http.StatusBadRequest, ErrorCodeUnexpectedSigningMethod)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
 	if _, ok := token.Claims.(jwt.MapClaims); !ok && !token.Valid {
-		RaiseError(w, "Invalid token", http.StatusBadRequest, ErrorCodeInvalidToken)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid Token")
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		RaiseError(w, "Invalid token claims", http.StatusBadRequest, ErrorCodeInvalidToken)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid Token Claims")
 	}
 
 	expValue, ok := claims["exp"].(string)
 	if !ok {
-		RaiseError(w, "Missing exp", http.StatusBadRequest, ErrorCodeInvalidToken)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing exp")
 	}
 
 	exp, _ := time.Parse(time.RFC3339, expValue)
 	if exp.Before(time.Now().UTC()) {
-		RaiseError(w, "Token expired", http.StatusBadRequest, ErrorCodeTokenExpired)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "Token expired")
 	}
 
 	userID, ok := claims["user_id"].(string)
 	if !ok {
-		RaiseError(w, "Missing user id", http.StatusBadRequest, ErrorCodeInvalidToken)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing user_id")
 	}
 
 	permissionsValue, ok := claims["permissions"].(string)
 	permissions := make([]Permission, 0)
 	err = json.Unmarshal([]byte(permissionsValue), &permissions)
 	if err != nil {
-		RaiseError(w, "Missing permissions", http.StatusBadRequest, ErrorCodeInvalidToken)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing permissions")
 	}
 
 	decodedToken := DecodedTokenMessage{
@@ -246,41 +220,5 @@ func (a *API) DecodeToken(w http.ResponseWriter, r *http.Request) {
 		Expires:     exp,
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(decodedToken)
-}
-
-// ServiceLogin handles service login api requests
-func (a *API) ServiceLogin(w http.ResponseWriter, r *http.Request) {
-	loginMsg := ServiceLoginType{}
-	err := parseRequestPayload(r.Body, loginMsg)
-	if err != nil {
-		RaiseError(w, "Invalid request body. Invalid json format", http.StatusBadRequest, ErrorCodeInvalidRequestBody)
-		return
-	}
-	service, ok, err := a.Storage.GetServiceByCredentials(loginMsg.ID, loginMsg.Key)
-	if err != nil {
-		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
-		return
-	}
-
-	if !ok {
-		RaiseError(w, "Login failed", http.StatusUnauthorized, ErrorCodeLoginFailed)
-		return
-	}
-
-	td, err := a.Tokenbuilder.CreateServiceToken(service)
-	if err != nil {
-		RaiseError(w, err.Error(), http.StatusInternalServerError, ErrorCodeInternal)
-		return
-	}
-
-	resp := &ServiceTokenType{
-		AccessToken: td.AccessToken,
-	}
-
-	w.Header().Add("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(resp)
+	return c.JSON(http.StatusOK, decodedToken)
 }

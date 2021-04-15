@@ -1,6 +1,6 @@
 /*
 token_builder.go
-Implements the TokenBuilder to generate USer and Service Tokens
+Implements the TokenBuilder to generate User Tokens
 
 ###################################################################################
 
@@ -39,7 +39,6 @@ import (
 // TokenBuilderInterface defines the interface for token builders
 type TokenBuilderInterface interface {
 	CreateUserToken(user *User) (*UserTokenData, error)
-	CreateServiceToken(service *Service) (*ServiceTokenData, error)
 }
 
 // UserTokenData holds all information about a user token.
@@ -48,11 +47,6 @@ type UserTokenData struct {
 	RefreshToken string
 	ATExpiresAt  time.Time
 	RFExpiresAt  time.Time
-}
-
-// ServiceTokenData holds all information about a service token.
-type ServiceTokenData struct {
-	AccessToken string
 }
 
 // TokenBuilder implements TokenbuilderInterface
@@ -96,27 +90,6 @@ func (t *TokenBuilder) CreateUserToken(user *User) (*UserTokenData, error) {
 	rfClaims["exp"] = td.RFExpiresAt
 	rf := jwt.NewWithClaims(jwt.SigningMethodHS256, rfClaims)
 	td.RefreshToken, err = rf.SignedString([]byte(rfSecret))
-	if err != nil {
-		return nil, err
-	}
-
-	return td, nil
-}
-
-// CreateServiceToken builds a new ServiceTokenData instance for given service
-func (t *TokenBuilder) CreateServiceToken(service *Service) (*ServiceTokenData, error) {
-	atSecret := os.Getenv("AUTH_SERVICE_SECRET")
-
-	var err error
-
-	td := &ServiceTokenData{}
-
-	// Create Token
-	sClaims := jwt.MapClaims{}
-	sClaims["authorized"] = true
-	sClaims["service_id"] = service.ID
-	s := jwt.NewWithClaims(jwt.SigningMethodHS256, sClaims)
-	td.AccessToken, err = s.SignedString([]byte(atSecret))
 	if err != nil {
 		return nil, err
 	}

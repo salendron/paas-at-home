@@ -28,9 +28,20 @@ SOFTWARE.
 */
 package main
 
+import (
+	"gorm.io/gorm"
+)
+
 // User contains all information about a user to login
 type User struct {
-	ID          string // Equals Username - has to be unique anyway
+	gorm.Model
+	Username    string
 	Password    string
-	Permissions []Permission
+	Permissions []Permission `gorm:"many2many:user_permissions;"`
+}
+
+// Permission represents a single Permission, which can be granted to a user
+type Permission struct {
+	gorm.Model
+	Name string
 }

@@ -7,12 +7,6 @@ of this user. The refresh token can be used to refresh a user'S authentication.
 Again, do not use this in production, but it is a nice example on how to
 implment JWT authentication and a refresh mechanism.
 
-## Development
-This service is developed using Visual Studio Code and requires the following extensions:
-* Docker
-* Remote-Containers
-* Go
-
 ## Deployment
 This command runs the service on port 7004 and mounts the local directory /media/external/storage/auth to /data which will be used by the service to read user data from. IT also sets all secrets and also the password for the super user (su).
 ```

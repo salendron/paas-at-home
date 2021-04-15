@@ -1,7 +1,7 @@
 /*
 storage.go
 Defines the storage interface of this application and implements the
-actual json object storage based on data files.
+actual database object storage.
 
 ###################################################################################
 
@@ -30,12 +30,10 @@ SOFTWARE.
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"log"
-	"os"
-	"path/filepath"
+	"errors"
+
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 var usersDirectory = "users"
@@ -43,81 +41,35 @@ var servicesDirectory = "services"
 
 //StorageInterface defines the interface for the data storage.
 type StorageInterface interface {
-	Initialize(dataRootDirectory string)
-	GetUserByCredentials(username string, passowrd string) (*User, bool, error)
-	GetUser(ID string) (*User, error)
-	GetServiceByCredentials(ID string, key string) (*Service, bool, error)
-	GetService(ID string) (*Service, error)
+	GetUserByCredentials(username string, passowrd string) (*User, error)
+	GetUserByID(ID int) (*User, error)
 }
 
 // Storage implements StorageInterface
 type Storage struct {
-	DataRootDirectory string
+	DB *gorm.DB
 }
 
-// Initialize sets the data root directory
-func (s *Storage) Initialize(dataRootDirectory string) {
-	s.DataRootDirectory = dataRootDirectory
+// Connect connects the storage to the database
+func (s *Storage) Connect(dsn string) error {
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+
+	//models
+	db.AutoMigrate(&User{})
+
+	s.DB = db
+
+	return err
 }
 
-// fileExists checks if a file exists
-func (s *Storage) fileExists(filePath string) bool {
-	info, err := os.Stat(filePath)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return !info.IsDir()
-}
-
-// getDirectoryPath is used to get a directory inside the data root
-// directory. If it does not exist, it will be created.
-func (s *Storage) getDirectoryPath(name string) (string, error) {
-	path := filepath.Join(s.DataRootDirectory, name)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err := os.Mkdir(path, 0755); err != nil {
-			return path, err
-		}
-	}
-
-	return path, nil
-}
-
-// GetUser loads a user. If it does not exists it returns nil as user
-func (s *Storage) GetUser(ID string) (*User, error) {
-	if ID == "su" {
-		user := &User{
-			ID: "su",
-			Permissions: []Permission{
-				Permission{Key: "ROOT"},
-			},
-		}
-		return user, nil
-	}
-
-	usersPath, err := s.getDirectoryPath(usersDirectory)
-	if err != nil {
-		return nil, err
-	}
-
-	userPath := filepath.Join(usersPath, fmt.Sprintf("%v.json", ID))
+// GetUserByID loads a user. If it does not exists it returns nil as user
+func (s *Storage) GetUserByID(ID int) (*User, error) {
 	user := &User{}
-	if s.fileExists(userPath) {
-		jsonFile, err := os.Open(userPath)
-		if err != nil {
-			return nil, err
-		}
-		defer jsonFile.Close()
+	result := s.DB.First(user, ID)
 
-		byteValue, err := ioutil.ReadAll(jsonFile)
-		if err != nil {
-			return nil, err
-		}
+	err := result.Error
 
-		err = json.Unmarshal(byteValue, user)
-		if err != nil {
-			return nil, err
-		}
-	} else {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 
@@ -125,75 +77,18 @@ func (s *Storage) GetUser(ID string) (*User, error) {
 }
 
 // GetUserByCredentials loads a User using given credentials
-func (s *Storage) GetUserByCredentials(username string, password string) (*User, bool, error) {
-	log.Println(fmt.Sprintf("%v %v %v", username, password, os.Getenv("SU_PWD")))
-	if username == "su" && password == os.Getenv("SU_PWD") {
-		user := &User{
-			ID: "su",
-			Permissions: []Permission{
-				Permission{Key: "ROOT"},
-			},
+func (s *Storage) GetUserByCredentials(username string, password string) (*User, error) {
+	user := &User{}
+	result := s.DB.Where("username = ?", username).Where("password = ?", password).First(user)
+	err := result.Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
 		}
-		return user, true, nil
-	}
-	user, err := s.GetUser(username)
-	if err != nil {
-		return nil, false, err
-	}
 
-	if user == nil {
-		return nil, false, nil
-	}
-
-	if user.Password != password {
-		return nil, false, nil
-	}
-
-	return user, true, nil
-}
-
-// GetService loads a service. If it does not exist it returns nil as service
-func (s *Storage) GetService(ID string) (*Service, error) {
-	storagePath, err := s.getDirectoryPath(servicesDirectory)
-	if err != nil {
 		return nil, err
 	}
 
-	servicePath := filepath.Join(storagePath, fmt.Sprintf("%v.json", ID))
-	service := &Service{}
-	if s.fileExists(servicePath) {
-		jsonFile, err := os.Open(servicePath)
-		if err != nil {
-			return nil, err
-		}
-		defer jsonFile.Close()
-
-		byteValue, err := ioutil.ReadAll(jsonFile)
-		if err != nil {
-			return nil, err
-		}
-
-		err = json.Unmarshal(byteValue, service)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		return nil, nil
-	}
-
-	return service, nil
-}
-
-// GetServiceByCredentials loads a Service using given credentials.
-func (s *Storage) GetServiceByCredentials(ID string, key string) (*Service, bool, error) {
-	service, err := s.GetService(ID)
-	if err != nil {
-		return nil, false, err
-	}
-
-	if service.AuthKey != key {
-		return nil, false, nil
-	}
-
-	return service, true, nil
+	return user, nil
 }

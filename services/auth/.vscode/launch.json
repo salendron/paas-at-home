@@ -12,7 +12,7 @@
             "program": "${fileDirname}",
             "env": {
                 "PORT":"7004",
-                "DATA_DIRECTORY":"tmp",
+                "DSN":"host=192.168.1.82 user=AuthService password=p073jon0 dbname=CoreAuth port=5432 sslmode=disable",
                 "AUTH_ACCESS_SECRET":"myGreatAccessSecret",
                 "AUTH_REFRESH_SECRET":"myGreatRefreshSecret",
                 "AUTH_SERVICE_SECRET":"myGreatServiceSecret",
